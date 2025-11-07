@@ -1,0 +1,398 @@
+[
+  {
+    "text": "I'd use async/await and proper error handling.",
+    "label": "positive",
+    "domain": "backend",
+    "source": "template"
+  },
+  {
+    "text": "We scaled using load balancers and caching layers.",
+    "label": "positive",
+    "domain": "backend",
+    "source": "template"
+  },
+  {
+    "text": "Yes, I've worked with that in production.",
+    "label": "positive",
+    "domain": "backend",
+    "source": "template"
+  },
+  {
+    "text": "Yes, I have worked with that in production.",
+    "label": "positive",
+    "domain": "backend",
+    "source": "template_aug"
+  },
+  {
+    "text": "I usually handle that with standard tools.",
+    "label": "neutral",
+    "domain": "backend",
+    "source": "template"
+  },
+  {
+    "text": "I'm not sure, I haven't used that much.",
+    "label": "negative",
+    "domain": "backend",
+    "source": "template"
+  },
+  {
+    "text": "I am not sure, I haven't used that much.",
+    "label": "negative",
+    "domain": "backend",
+    "source": "template_aug"
+  },
+  {
+    "text": "ETL is essential for transforming raw data into usable formats.",
+    "label": "positive",
+    "domain": "data",
+    "source": "template"
+  },
+  {
+    "text": "I built pipelines using Airflow and Python.",
+    "label": "positive",
+    "domain": "data",
+    "source": "template"
+  },
+  {
+    "text": "We used Spark for distributed processing.",
+    "label": "positive",
+    "domain": "data",
+    "source": "template"
+  },
+  {
+    "text": "I usually handle that with standard tools.",
+    "label": "neutral",
+    "domain": "data",
+    "source": "template"
+  },
+  {
+    "text": "I'm not sure, I haven't used that much.",
+    "label": "negative",
+    "domain": "data",
+    "source": "template"
+  },
+  {
+    "text": "I am not sure, I haven't used that much.",
+    "label": "negative",
+    "domain": "data",
+    "source": "template_aug"
+  },
+  {
+    "text": "I use Google Calendar and Trello for scheduling.",
+    "label": "positive",
+    "domain": "admin",
+    "source": "template"
+  },
+  {
+    "text": "I prioritize tasks using urgency and impact.",
+    "label": "positive",
+    "domain": "admin",
+    "source": "template"
+  },
+  {
+    "text": "Yes, I've worked with that in production.",
+    "label": "positive",
+    "domain": "admin",
+    "source": "template"
+  },
+  {
+    "text": "Yes, I have worked with that in production.",
+    "label": "positive",
+    "domain": "admin",
+    "source": "template_aug"
+  },
+  {
+    "text": "I usually handle that with standard tools.",
+    "label": "neutral",
+    "domain": "admin",
+    "source": "template"
+  },
+  {
+    "text": "I'm not sure, I haven't used that much.",
+    "label": "negative",
+    "domain": "admin",
+    "source": "template"
+  },
+  {
+    "text": "I am not sure, I haven't used that much.",
+    "label": "negative",
+    "domain": "admin",
+    "source": "template_aug"
+  },
+  {
+    "text": "I'm really excited about this opportunity!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I am really excited about this opportunity!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "This sounds absolutely perfect for me!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I'd love to work on this kind of project!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "That's exactly the challenge I'm looking for!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "That's exactly the challenge I am looking for!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "I'm confident I can deliver great results here!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I am confident I can deliver great results here!",
+    "label": "positive",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "I think that could work.",
+    "label": "neutral",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "That seems like a reasonable approach.",
+    "label": "neutral",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I've heard of that technology before.",
+    "label": "neutral",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I have heard of that technology before.",
+    "label": "neutral",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "It depends on the specific requirements.",
+    "label": "neutral",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I would need to evaluate the options.",
+    "label": "neutral",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I'm not entirely sure about that.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I am not entirely sure about that.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "I haven't had much experience with that.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "That sounds quite challenging.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I don't think I'm familiar with that approach.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I don't think I am familiar with that approach.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "I'm uncertain about those requirements.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples"
+  },
+  {
+    "text": "I am uncertain about those requirements.",
+    "label": "negative",
+    "domain": "general",
+    "source": "emotional_examples_aug"
+  },
+  {
+    "text": "I've implemented microservices using Docker and Kubernetes in my last project.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I have implemented microservices using Docker and Kubernetes in my last project.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I'm proficient with React hooks and state management patterns.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I am proficient with React hooks and state management patterns.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I have extensive experience with PostgreSQL and query optimization.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I've led teams through complete CI/CD pipeline implementations.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I have led teams through complete CI/CD pipeline implementations.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I'm comfortable working with AWS services like Lambda and S3.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I am comfortable working with AWS services like Lambda and S3.",
+    "label": "positive",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I've used that framework in a couple of projects.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I have used that framework in a couple of projects.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I understand the basic concepts of that technology.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I could learn that tool if needed for the role.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I'm familiar with similar approaches to that problem.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I am familiar with similar approaches to that problem.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I've read about that pattern but haven't implemented it yet.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I have read about that pattern but haven't implemented it yet.",
+    "label": "neutral",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I haven't worked with that specific technology before.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "That's outside my current area of expertise.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I'm still learning about distributed systems.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I am still learning about distributed systems.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated_aug"
+  },
+  {
+    "text": "I find that framework quite complex to work with.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I've struggled with similar implementations in the past.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated"
+  },
+  {
+    "text": "I have struggled with similar implementations in the past.",
+    "label": "negative",
+    "domain": "technical",
+    "source": "generated_aug"
+  }
+]

@@ -6,7 +6,7 @@ Verifica que el entorno esté listo para entrenar el modelo de sentimiento
 import sys
 
 print("=" * 60)
-print("🔍 VERIFICACIÓN DE ENTORNO - GPU SETUP")
+print("VERIFICACION DE ENTORNO - GPU SETUP")
 print("=" * 60)
 
 # 1. Python version
@@ -94,19 +94,19 @@ for folder in folders_to_check:
 
 # Resumen final
 print("\n" + "=" * 60)
-print("📊 RESUMEN")
+print("[SUMMARY] RESUMEN")
 print("=" * 60)
 
 if 'torch' in sys.modules and torch.cuda.is_available():
-    print("✅ GPU LISTA PARA ENTRENAR")
-    print(f"\n⚡ Tu Alienware M18 R2 está configurada correctamente")
+    print("[SUCCESS] GPU LISTA PARA ENTRENAR")
+    print(f"\n[INFO] Tu Alienware M18 R2 esta configurada correctamente")
     print(f"   GPU: {torch.cuda.get_device_name(0)}")
     print(f"   VRAM: {total_memory:.2f} GB")
-    print(f"\n🚀 Tiempo estimado de entrenamiento: 1-1.5h (3 epochs)")
+    print(f"\n[ESTIMATE] Tiempo estimado de entrenamiento: 1-1.5h (3 epochs)")
     print(f"   Batch size recomendado: 32-48")
 else:
-    print("⚠️  CONFIGURACIÓN INCOMPLETA")
-    print("\n📝 Pasos para completar setup:")
+    print("[WARNING] CONFIGURACION INCOMPLETA")
+    print("\n[TODO] Pasos para completar setup:")
     print("1. Instalar PyTorch con CUDA:")
     print("   pip install torch --index-url https://download.pytorch.org/whl/cu121")
     print("\n2. Instalar dependencias:")
