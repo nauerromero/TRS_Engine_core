@@ -2,6 +2,12 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
+# Instalar herramientas de compilación necesarias para sentencepiece y tokenizers
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Instalar PyTorch CPU-only PRIMERO (antes de otras dependencias)
 # Esto evita que dependencias instalen PyTorch completo
 RUN pip install --no-cache-dir torch>=2.5.0 --index-url https://download.pytorch.org/whl/cpu
