@@ -6,7 +6,7 @@ import sys
 import os
 from pathlib import Path
 
-# Agregar src/ al path
+# Agregar src/ y project root al path
 project_root = Path(__file__).parent
 src_path = project_root / 'src'
 
@@ -18,8 +18,18 @@ if not src_path.exists():
     print(f"[DEBUG] Contents of project root: {list(project_root.iterdir())}")
     sys.exit(1)
 
-# Agregar src/ al path de Python
+# Verificar que Modules/ existe
+modules_path = project_root / 'Modules'
+if not modules_path.exists():
+    print(f"[ERROR] Modules/ directory not found at {modules_path}")
+    print(f"[DEBUG] Contents of project root: {list(project_root.iterdir())}")
+    sys.exit(1)
+
+# Agregar project root y src/ al path de Python
+# project_root primero para que Modules/ sea accesible
+sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(src_path))
+print(f"[INFO] Added {project_root} to Python path")
 print(f"[INFO] Added {src_path} to Python path")
 
 # Verificar que whatsapp_bot.py existe
