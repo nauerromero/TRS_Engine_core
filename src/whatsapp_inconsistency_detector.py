@@ -3,7 +3,7 @@ WhatsApp Inconsistency Detector - Adapted from chat_simulator.py
 Detects red flags in candidate responses during WhatsApp interviews
 Enhanced with BERT-based semantic analysis
 """
-
+ 
 # BERT Consistency Checker (opcional, mejora detección)
 _bert_checker = None
 _bert_loading = False
