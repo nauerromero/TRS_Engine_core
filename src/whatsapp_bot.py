@@ -266,14 +266,15 @@ def is_copied_from_previous(session, current_response, threshold=0.7):
         return (False, None)
 
 # Utility function: Detect if user just repeats the question
-def is_question_repetition(question_text, user_response, threshold=0.7):
+def is_question_repetition(question_text, user_response, threshold=0.65):
     """
     Detect if user response is just repeating the question instead of answering it.
+    Improved version with better detection of copied questions.
     
     Args:
         question_text: The question that was asked
         user_response: User's response
-        threshold: Similarity threshold (0-1) to consider it a repetition
+        threshold: Similarity threshold (0-1) to consider it a repetition (default: 0.65)
     
     Returns:
         True if response is likely just repeating the question, False otherwise
@@ -282,44 +283,104 @@ def is_question_repetition(question_text, user_response, threshold=0.7):
         if not question_text or not user_response:
             return False
         
-        # Normalize both texts
-        question_lower = question_text.lower().strip()
-        response_lower = user_response.lower().strip()
+        # Normalize both texts - remove extra whitespace and newlines
+        question_lower = ' '.join(question_text.lower().strip().split())
+        response_lower = ' '.join(user_response.lower().strip().split())
         
-        # Remove common question words and formatting
+        # Remove common formatting markers and hints
+        formatting_markers = ['💡', 'hint:', '*hint*', 'tip:', '*tip*', 
+                             'explain in your own words', 'answer in english please',
+                             'responde en español', 'responde en inglés',
+                             'describe', 'explica', 'explain', 'tell me']
+        for marker in formatting_markers:
+            question_lower = question_lower.replace(marker, '')
+            response_lower = response_lower.replace(marker, '')
+        
+        question_lower = question_lower.strip()
+        response_lower = response_lower.strip()
+        
+        # Quick check: If response is almost identical to question (exact copy)
+        if response_lower == question_lower:
+            return True
+        
+        # Check if response contains the full question text (common copy-paste pattern)
+        if len(response_lower) >= len(question_lower) * 0.9:
+            # Remove common question words for comparison
+            question_clean = question_lower
+            response_clean = response_lower
+            
+            # Remove question words
+            question_words_to_remove = ['what', 'how', 'why', 'when', 'where', 'which', 'who',
+                                       'qué', 'cómo', 'cuál', 'cuáles', 'por qué', 'cuándo', 'dónde',
+                                       'is', 'are', 'was', 'were', 'do', 'does', 'did',
+                                       'es', 'son', 'está', 'están', 'hace', 'hacen']
+            
+            for word in question_words_to_remove:
+                question_clean = question_clean.replace(word, '')
+                response_clean = response_clean.replace(word, '')
+            
+            # Check if response starts with question (very common copy pattern)
+            if response_clean.startswith(question_clean[:min(50, len(question_clean))]):
+                return True
+        
+        # Split into words for detailed analysis
         question_words = set(question_lower.split())
         response_words = set(response_lower.split())
         
         # Remove common words that don't indicate repetition
         common_words = {'el', 'la', 'los', 'las', 'un', 'una', 'de', 'en', 'y', 'o', 'a', 'que', 'qué', 
-                       'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with',
+                       'the', 'a', 'an', 'and', 'or', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by',
                        'es', 'son', 'está', 'están', 'is', 'are', 'was', 'were', 'be', 'been',
                        'cuál', 'cuáles', 'cómo', 'qué', 'which', 'what', 'how', 'why', 'when', 'where',
-                       'pregunta', 'question', 'respuesta', 'answer', 'describe', 'explica', 'explain'}
+                       'pregunta', 'question', 'respuesta', 'answer', 'describe', 'explica', 'explain',
+                       'your', 'you', 'tu', 'tus', 'su', 'sus', 'their', 'theirs'}
         
         question_words = question_words - common_words
         response_words = response_words - common_words
         
-        # If response is very similar to question (high overlap), it's likely a repetition
+        # If no meaningful words left, can't determine
         if len(question_words) == 0:
             return False
         
-        # Calculate word overlap
+        # Calculate word overlap (Jaccard similarity)
         overlap = len(question_words & response_words)
-        similarity = overlap / len(question_words) if len(question_words) > 0 else 0
+        total_unique_words = len(question_words | response_words)
         
-        # Also check if response is shorter than question (indicates copy-paste)
-        if len(response_lower) < len(question_lower) * 0.8 and similarity > threshold * 0.8:
+        # Jaccard similarity: intersection / union
+        jaccard_similarity = overlap / total_unique_words if total_unique_words > 0 else 0
+        
+        # Also calculate word overlap ratio (how much of question is in response)
+        word_overlap_ratio = overlap / len(question_words) if len(question_words) > 0 else 0
+        
+        # Check 1: High Jaccard similarity (many words in common)
+        if jaccard_similarity > threshold:
             return True
         
-        # If similarity is high, it's likely a repetition
-        if similarity > threshold:
+        # Check 2: High word overlap ratio AND response is similar length or shorter
+        # (indicates copy-paste of question)
+        if word_overlap_ratio > threshold and len(response_lower) <= len(question_lower) * 1.2:
             return True
         
-        # Check if response starts with question words (common in copy-paste)
-        response_start = ' '.join(response_lower.split()[:5])
-        question_start = ' '.join(question_lower.split()[:5])
-        if response_start == question_start:
+        # Check 3: Response is shorter than question AND has high overlap
+        # (common when user copies question but removes parts)
+        if len(response_lower) < len(question_lower) * 0.8 and word_overlap_ratio > threshold * 0.8:
+            return True
+        
+        # Check 4: Response starts with question words (common copy-paste pattern)
+        response_start = ' '.join(response_lower.split()[:8])  # Check first 8 words
+        question_start = ' '.join(question_lower.split()[:8])
+        
+        # Calculate similarity of first words
+        response_start_words = set(response_start.split())
+        question_start_words = set(question_start.split())
+        start_overlap = len(response_start_words & question_start_words)
+        start_similarity = start_overlap / len(question_start_words) if len(question_start_words) > 0 else 0
+        
+        if start_similarity > 0.7:  # 70% of first words match
+            return True
+        
+        # Check 5: Response contains question as substring (exact copy)
+        if question_lower in response_lower or response_lower in question_lower:
             return True
         
         return False
@@ -845,9 +906,13 @@ STAGES = {
 }
 
 # Positions with complete questions and answers configured
-# Only these positions will be shown to users/judges
+# All positions available in Free Mode
 POSITIONS_WITH_CONTENT = [
     "Backend Developer (Python/Django)",
+    "Full Stack Developer (Python/React)",
+    "API Developer (REST/GraphQL)",
+    "Backend Engineer (Node.js/Express)",
+    "Software Engineer (Python/FastAPI)",
     "Data Engineer (AWS/Spark)"
 ]
 
@@ -1172,8 +1237,15 @@ def process_message(phone_number, message_text):
         user_response = message_text.strip().upper()
         lang = session.get('language', 'es')
         
-        if user_response in ['SÍ', 'SI', 'SÍ', 'YES', 'Y', 'ACEPTO', 'OK']:
+        # Debug log
+        print(f"[DEBUG] Stage 0.5 - User response: '{user_response}', Original: '{message_text}'")
+        print(f"[DEBUG] Demo mode: {session.get('demo_mode')}")
+        
+        # Check for acceptance (more comprehensive list)
+        accepted_responses = ['SÍ', 'SI', 'SÍ', 'YES', 'Y', 'ACEPTO', 'OK', 'OKAY', 'ACCEPT', 'AGREE']
+        if user_response in accepted_responses:
             session['data']['privacy_accepted'] = True
+            print(f"[DEBUG] Privacy accepted: YES")
             
             # Check if we're in demo mode - if so, continue directly with interview
             if session.get('demo_mode') == 'full_interview':
@@ -1219,7 +1291,11 @@ def process_message(phone_number, message_text):
                         "💡 *Tip:* Puedes escribir *REINICIAR* en cualquier momento para empezar de nuevo."
                     )
                 session['stage'] = 0.6  # New stage: DEMO or Free mode selection
+                save_session(phone_number, session)
+                return response_text
         else:
+            # User declined or invalid response
+            print(f"[DEBUG] Privacy NOT accepted or invalid response: '{user_response}'")
             session['data']['privacy_accepted'] = False
             
             if lang == 'en':
@@ -1237,6 +1313,8 @@ def process_message(phone_number, message_text):
                     "¿Tienes preguntas? Aquí estoy: hello@saoriai.com"
                 )
             session['stage'] = 15  # Skip to closing
+            save_session(phone_number, session)
+            return response_text
     
     elif stage == 0.6:  # DEMO or Free Mode Selection
         user_choice = message_text.strip()
@@ -1279,14 +1357,32 @@ def process_message(phone_number, message_text):
             
             if lang == 'en':
                 response_text = (
-                    "✨ *Wonderful! Let's get started.*\n\n"
-                    "👤 *First, what's your full name?*\n\n"
+                    "✨ *Welcome to SAORI AI!* 🌸\n\n"
+                    "I'm *Saori* — your AI-powered recruitment assistant.\n\n"
+                    "I'll guide you through a quick evaluation (about 10 minutes) where I'll ask about:\n\n"
+                    "✅ Your technical skills (3 questions)\n"
+                    "✅ Your English level (2 questions)\n"
+                    "✅ Your teamwork experience (1 question)\n"
+                    "✅ Your professional background\n\n"
+                    "Everything is confidential and used only for your recruitment process.\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "👤 *Let's start! What's your full name?*\n\n"
+                    "💡 *Example:* John Smith, María García\n"
                     "💡 *Tip:* Type *RESTART* anytime to start over."
                 )
             else:
                 response_text = (
-                    "✨ *¡Maravilloso! Comencemos.*\n\n"
-                    "👤 *Primero, ¿cuál es tu nombre completo?*\n\n"
+                    "✨ *¡Bienvenido a SAORI AI!* 🌸\n\n"
+                    "Soy *Saori* — tu asistente de reclutamiento con IA.\n\n"
+                    "Te guiaré en una evaluación rápida (unos 10 minutos) donde te preguntaré sobre:\n\n"
+                    "✅ Tus habilidades técnicas (3 preguntas)\n"
+                    "✅ Tu nivel de inglés (2 preguntas)\n"
+                    "✅ Tu experiencia de trabajo en equipo (1 pregunta)\n"
+                    "✅ Tu perfil profesional\n\n"
+                    "Todo es confidencial y se usa solo para tu proceso de reclutamiento.\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "👤 *¡Empecemos! ¿Cuál es tu nombre completo?*\n\n"
+                    "💡 *Ejemplo:* Juan Pérez, María García\n"
                     "💡 *Tip:* Puedes escribir *REINICIAR* en cualquier momento para empezar de nuevo."
                 )
         else:
@@ -1357,22 +1453,42 @@ def process_message(phone_number, message_text):
             session['data']['position'] = preconfigured_position
             session['stage'] = 3
         else:
-            # Normal flow: ask user to select position
+            # Normal flow: ask user to select position (Free Mode)
+            # Enhanced message with position descriptions
+            position_descriptions = {
+                "Backend Developer (Python/Django)": "→ Technical questions about Django, APIs, databases",
+                "Full Stack Developer (Python/React)": "→ Technical questions about React, frontend/backend integration",
+                "API Developer (REST/GraphQL)": "→ Technical questions about API design, REST, GraphQL",
+                "Backend Engineer (Node.js/Express)": "→ Technical questions about Node.js, Express, async programming",
+                "Software Engineer (Python/FastAPI)": "→ Technical questions about FastAPI, async/await, Python",
+                "Data Engineer (AWS/Spark)": "→ Technical questions about data pipelines, Spark, AWS"
+            }
+            
+            positions_text_enhanced = ""
+            for i, pos in enumerate(positions, 1):
+                desc = position_descriptions.get(pos, "")
+                if desc:
+                    positions_text_enhanced += f"{i}️⃣ {pos}\n   {desc}\n\n"
+                else:
+                    positions_text_enhanced += f"{i}️⃣ {pos}\n"
+            
             if lang == 'en':
                 response_text = (
                     f"Nice to meet you, *{name}*! 🎉\n\n"
-                    f"💼 *Great news! Based on your profile, here are the positions that fit perfectly:*\n\n"
-                    f"{positions_text}\n"
+                    f"💼 *These are the available positions 😊*\n\n"
+                    f"{positions_text_enhanced}"
                     f"Which position would you like to apply for?\n"
-                    f"_(Reply with the number or position name)_"
+                    f"_(Reply with the number or position name)_\n\n"
+                    f"💡 *Tip:* Choose the position that best matches your experience"
                 )
             else:
                 response_text = (
                     f"¡Encantado de conocerte, *{name}*! 🎉\n\n"
-                    f"💼 *¡Excelente! Estas son las posiciones disponibles:*\n\n"
-                    f"{positions_text}\n"
+                    f"💼 *Estas son las posiciones disponibles 😊*\n\n"
+                    f"{positions_text_enhanced}"
                     f"¿A cuál posición te gustaría aplicar?\n"
-                    f"_(Responde con el número o el nombre de la posición)_"
+                    f"_(Responde con el número o el nombre de la posición)_\n\n"
+                    f"💡 *Tip:* Elige la posición que mejor coincida con tu experiencia"
                 )
             session['stage'] = 2
     
@@ -1557,7 +1673,88 @@ def process_message(phone_number, message_text):
                     "(Explica las primeras tres formas normales con ejemplos conceptuales)\n\n"
                     "💡 *Hint:* Menciona conceptos como: redundancia, integridad, 1NF, 2NF, 3NF, tablas, relaciones, dependencias"
                 )
+        elif 'backend developer' in position and 'django' in position:
+            # Backend Developer (Python/Django)
+            if lang == 'en':
+                tech_q1 = (
+                    "🔧 *Question 1 of 3:*\n"
+                    "What are Django models and how do they relate to the database?\n"
+                    "(Explain in your own words)\n\n"
+                    "💡 *Hint:* Mention concepts like: Python classes, database tables, ORM, attributes, columns"
+                )
+            else:
+                tech_q1 = (
+                    "🔧 *Pregunta 1 de 3:*\n"
+                    "¿Qué son los modelos de Django y cómo se relacionan con la base de datos?\n"
+                    "(Explica con tus propias palabras)\n\n"
+                    "💡 *Hint:* Menciona conceptos como: clases Python, tablas de base de datos, ORM, atributos, columnas"
+                )
+        elif 'full stack' in position and 'react' in position:
+            # Full Stack Developer (Python/React)
+            if lang == 'en':
+                tech_q1 = (
+                    "🔧 *Question 1 of 3:*\n"
+                    "What is the difference between server-side rendering (SSR) and client-side rendering (CSR) in React applications?\n"
+                    "(Explain in your own words)\n\n"
+                    "💡 *Hint:* Mention concepts like: Next.js, hydration, SEO, performance, initial load"
+                )
+            else:
+                tech_q1 = (
+                    "🔧 *Pregunta 1 de 3:*\n"
+                    "¿Cuál es la diferencia entre renderizado del lado del servidor (SSR) y renderizado del lado del cliente (CSR) en aplicaciones React?\n"
+                    "(Explica con tus propias palabras)\n\n"
+                    "💡 *Hint:* Menciona conceptos como: Next.js, hidratación, SEO, rendimiento, carga inicial"
+                )
+        elif 'api developer' in position or ('rest' in position and 'graphql' in position):
+            # API Developer (REST/GraphQL)
+            if lang == 'en':
+                tech_q1 = (
+                    "🔧 *Question 1 of 3:*\n"
+                    "What's the difference between REST and GraphQL? When would you choose one over the other?\n"
+                    "(Explain in your own words)\n\n"
+                    "💡 *Hint:* Mention concepts like: endpoints, queries, over-fetching, under-fetching, flexibility"
+                )
+            else:
+                tech_q1 = (
+                    "🔧 *Pregunta 1 de 3:*\n"
+                    "¿Cuál es la diferencia entre REST y GraphQL? ¿Cuándo elegirías uno sobre el otro?\n"
+                    "(Explica con tus propias palabras)\n\n"
+                    "💡 *Hint:* Menciona conceptos como: endpoints, queries, sobre-fetching, sub-fetching, flexibilidad"
+                )
+        elif 'backend engineer' in position and 'node.js' in position:
+            # Backend Engineer (Node.js/Express)
+            if lang == 'en':
+                tech_q1 = (
+                    "🔧 *Question 1 of 3:*\n"
+                    "What is the event loop in Node.js and how does it enable asynchronous operations?\n"
+                    "(Explain in your own words)\n\n"
+                    "💡 *Hint:* Mention concepts like: call stack, callback queue, non-blocking I/O, single-threaded"
+                )
+            else:
+                tech_q1 = (
+                    "🔧 *Pregunta 1 de 3:*\n"
+                    "¿Qué es el event loop en Node.js y cómo permite operaciones asíncronas?\n"
+                    "(Explica con tus propias palabras)\n\n"
+                    "💡 *Hint:* Menciona conceptos como: call stack, cola de callbacks, I/O no bloqueante, single-threaded"
+                )
+        elif 'software engineer' in position and 'fastapi' in position:
+            # Software Engineer (Python/FastAPI)
+            if lang == 'en':
+                tech_q1 = (
+                    "🔧 *Question 1 of 3:*\n"
+                    "What are the main advantages of FastAPI over other Python web frameworks like Flask or Django?\n"
+                    "(Explain in your own words)\n\n"
+                    "💡 *Hint:* Mention concepts like: async/await, type hints, automatic documentation, performance"
+                )
+            else:
+                tech_q1 = (
+                    "🔧 *Pregunta 1 de 3:*\n"
+                    "¿Cuáles son las principales ventajas de FastAPI sobre otros frameworks web de Python como Flask o Django?\n"
+                    "(Explica con tus propias palabras)\n\n"
+                    "💡 *Hint:* Menciona conceptos como: async/await, type hints, documentación automática, rendimiento"
+                )
         elif 'backend' in position:
+            # Fallback for other backend positions
             if lang == 'en':
                 tech_q1 = (
                     "🔧 *Question 1 of 3:*\n"
@@ -1587,32 +1784,92 @@ def process_message(phone_number, message_text):
                     "(Explica con tus propias palabras)"
                 )
         
+        # Check if we're in demo mode to show ANSWERS tip
+        is_demo_mode = session.get('demo_mode') == 'full_interview'
+        
+        # Get position for enhanced message
+        position = session['data'].get('position', 'your selected position')
+        
         if lang == 'en':
-            response_text = (
-                "Perfect! 😊\n\n"
-                "⚡ *Now come 3 technical questions.*\n\n"
-                "💡 *Tip:* Answer honestly based on your real experience.\n"
-                "There are no wrong answers — I just want to understand your current level. 🌸\n"
-                "*Be as detailed as possible - show me what you know!*\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                "💡 *TIP:* At any time, send ANSWERS to see suggested responses\n\n"
-                "📖 Or send HELP and I'll be here to assist you! 🌸\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"{tech_q1}"
-            )
+            answers_tip = ""
+            if is_demo_mode:
+                answers_tip = "💡 *TIP:* At any time, send ANSWERS to see suggested responses\n\n"
+            
+            if not is_demo_mode:
+                # Enhanced message for Free Mode
+                response_text = (
+                    "Perfect! 😊\n\n"
+                    f"⚡ *Now come 3 technical questions about {position}.*\n\n"
+                    "💡 *What to expect:*\n"
+                    "• Each question evaluates your technical knowledge\n"
+                    "• There are no wrong answers — be honest about your experience\n"
+                    "• You can provide detailed answers (no length restrictions)\n"
+                    "• Your responses will be evaluated based on technical keywords and detail\n\n"
+                    "💡 *Tips for better scores:*\n"
+                    "• Be specific and detailed\n"
+                    "• Mention relevant technologies and concepts\n"
+                    "• Explain your thought process\n"
+                    "• Share real examples from your experience\n\n"
+                    "📊 *Progress: Question 1 of 3*\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "📖 Or send HELP and I'll be here to assist you! 🌸\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{tech_q1}"
+                )
+            else:
+                # Original message for Demo Mode
+                response_text = (
+                    "Perfect! 😊\n\n"
+                    "⚡ *Now come 3 technical questions.*\n\n"
+                    "💡 *Tip:* Answer honestly based on your real experience.\n"
+                    "There are no wrong answers — I just want to understand your current level. 🌸\n"
+                    "*Be as detailed as possible - show me what you know!*\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{answers_tip}"
+                    "📖 Or send HELP and I'll be here to assist you! 🌸\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{tech_q1}"
+                )
         else:
-            response_text = (
-                "Perfecto! 😊\n\n"
-                "⚡ *Ahora vienen 3 preguntas técnicas.*\n\n"
-                "💡 *Tip:* Responde con honestidad basándote en tu experiencia real.\n"
-                "No hay respuestas incorrectas — solo quiero conocer tu nivel actual. 🌸\n"
-                "*¡Sé lo más detallado posible - demuéstranos lo que sabes!*\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                "💡 *TIP:* En cualquier momento, envía RESPUESTAS para ver respuestas sugeridas\n\n"
-                "📖 O envía AYUDA y estaré aquí para asistirte 🌸\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
-                f"{tech_q1}"
-            )
+            answers_tip = ""
+            if is_demo_mode:
+                answers_tip = "💡 *TIP:* En cualquier momento, envía RESPUESTAS para ver respuestas sugeridas\n\n"
+            
+            if not is_demo_mode:
+                # Enhanced message for Free Mode
+                response_text = (
+                    "Perfecto! 😊\n\n"
+                    f"⚡ *Ahora vienen 3 preguntas técnicas sobre {position}.*\n\n"
+                    "💡 *Qué esperar:*\n"
+                    "• Cada pregunta evalúa tu conocimiento técnico\n"
+                    "• No hay respuestas incorrectas — sé honesto sobre tu experiencia\n"
+                    "• Puedes dar respuestas detalladas (sin restricciones de longitud)\n"
+                    "• Tus respuestas se evaluarán basándose en keywords técnicos y detalle\n\n"
+                    "💡 *Tips para mejores scores:*\n"
+                    "• Sé específico y detallado\n"
+                    "• Menciona tecnologías y conceptos relevantes\n"
+                    "• Explica tu proceso de pensamiento\n"
+                    "• Comparte ejemplos reales de tu experiencia\n\n"
+                    "📊 *Progreso: Pregunta 1 de 3*\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "📖 O envía AYUDA y estaré aquí para asistirte 🌸\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{tech_q1}"
+                )
+            else:
+                # Original message for Demo Mode
+                response_text = (
+                    "Perfecto! 😊\n\n"
+                    "⚡ *Ahora vienen 3 preguntas técnicas.*\n\n"
+                    "💡 *Tip:* Responde con honestidad basándote en tu experiencia real.\n"
+                    "No hay respuestas incorrectas — solo quiero conocer tu nivel actual. 🌸\n"
+                    "*¡Sé lo más detallado posible - demuéstranos lo que sabes!*\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{answers_tip}"
+                    "📖 O envía AYUDA y estaré aquí para asistirte 🌸\n\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{tech_q1}"
+                )
         session['data']['tech_questions'] = []
         # Store the full question text for validation
         session['data']['current_tech_question'] = tech_q1
@@ -1680,6 +1937,16 @@ def process_message(phone_number, message_text):
         position = session['data'].get('position', '').lower()
         if 'data engineer' in position:
             question_topic = "Normalization"
+        elif 'backend developer' in position and 'django' in position:
+            question_topic = "Django Models"
+        elif 'full stack' in position and 'react' in position:
+            question_topic = "React SSR vs CSR"
+        elif 'api developer' in position or ('rest' in position and 'graphql' in position):
+            question_topic = "REST vs GraphQL"
+        elif 'backend engineer' in position and 'node.js' in position:
+            question_topic = "Node.js Event Loop"
+        elif 'software engineer' in position and 'fastapi' in position:
+            question_topic = "FastAPI Advantages"
         elif 'backend' in position:
             question_topic = "Django Models"
         else:
@@ -1713,7 +1980,8 @@ def process_message(phone_number, message_text):
                     "¿Cuáles son las ventajas y desventajas en ingeniería de datos?\n\n"
                     "💡 *Hint:* Menciona conceptos como: runtime, declaración de tipo, flexibilidad, rendimiento"
                 )
-        elif 'backend' in position:
+        elif 'backend developer' in position and 'django' in position:
+            # Backend Developer (Python/Django)
             if lang == 'en':
                 tech_q2 = (
                     "🔧 *Question 2 of 3:*\n"
@@ -1723,7 +1991,78 @@ def process_message(phone_number, message_text):
             else:
                 tech_q2 = (
                     "🔧 *Pregunta 2 de 3:*\n"
-                    "¿Cómo diseñarías un endpoint de API en Django para devolver una lista de usuarios en formato JSON?"
+                    "¿Cómo diseñarías un endpoint de API en Django para devolver una lista de usuarios en formato JSON?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: Django REST Framework, serializer, view, JSON"
+                )
+        elif 'full stack' in position and 'react' in position:
+            # Full Stack Developer (Python/React)
+            if lang == 'en':
+                tech_q2 = (
+                    "🔧 *Question 2 of 3:*\n"
+                    "How does React's virtual DOM improve performance compared to direct DOM manipulation?\n\n"
+                    "💡 *Hint:* Mention concepts like: diffing algorithm, reconciliation, batch updates, re-rendering"
+                )
+            else:
+                tech_q2 = (
+                    "🔧 *Pregunta 2 de 3:*\n"
+                    "¿Cómo mejora el virtual DOM de React el rendimiento comparado con la manipulación directa del DOM?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: algoritmo de diffing, reconciliación, actualizaciones en lote, re-renderizado"
+                )
+        elif 'api developer' in position or ('rest' in position and 'graphql' in position):
+            # API Developer (REST/GraphQL)
+            if lang == 'en':
+                tech_q2 = (
+                    "🔧 *Question 2 of 3:*\n"
+                    "What is API versioning and what strategies would you use to version a REST API?\n\n"
+                    "💡 *Hint:* Mention concepts like: URL versioning, header versioning, semantic versioning, backward compatibility"
+                )
+            else:
+                tech_q2 = (
+                    "🔧 *Pregunta 2 de 3:*\n"
+                    "¿Qué es la versionado de APIs y qué estrategias usarías para versionar una API REST?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: versionado en URL, versionado en headers, versionado semántico, compatibilidad hacia atrás"
+                )
+        elif 'backend engineer' in position and 'node.js' in position:
+            # Backend Engineer (Node.js/Express)
+            if lang == 'en':
+                tech_q2 = (
+                    "🔧 *Question 2 of 3:*\n"
+                    "What is middleware in Express.js and how would you use it to handle authentication?\n\n"
+                    "💡 *Hint:* Mention concepts like: request/response cycle, next(), JWT, session management"
+                )
+            else:
+                tech_q2 = (
+                    "🔧 *Pregunta 2 de 3:*\n"
+                    "¿Qué es middleware en Express.js y cómo lo usarías para manejar autenticación?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: ciclo request/response, next(), JWT, gestión de sesiones"
+                )
+        elif 'software engineer' in position and 'fastapi' in position:
+            # Software Engineer (Python/FastAPI)
+            if lang == 'en':
+                tech_q2 = (
+                    "🔧 *Question 2 of 3:*\n"
+                    "How does FastAPI handle dependency injection and why is it useful for building APIs?\n\n"
+                    "💡 *Hint:* Mention concepts like: Depends(), dependency tree, database connections, authentication"
+                )
+            else:
+                tech_q2 = (
+                    "🔧 *Pregunta 2 de 3:*\n"
+                    "¿Cómo maneja FastAPI la inyección de dependencias y por qué es útil para construir APIs?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: Depends(), árbol de dependencias, conexiones de base de datos, autenticación"
+                )
+        elif 'backend' in position:
+            # Fallback for other backend positions
+            if lang == 'en':
+                tech_q2 = (
+                    "🔧 *Question 2 of 3:*\n"
+                    "How would you design an API endpoint in Django to return a list of users in JSON format?\n\n"
+                    "💡 *Hint:* Mention concepts like: Django REST Framework, serializer, view, JSON"
+                )
+            else:
+                tech_q2 = (
+                    "🔧 *Pregunta 2 de 3:*\n"
+                    "¿Cómo diseñarías un endpoint de API en Django para devolver una lista de usuarios en formato JSON?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: Django REST Framework, serializer, view, JSON"
                 )
         else:
             if lang == 'en':
@@ -1737,7 +2076,13 @@ def process_message(phone_number, message_text):
                     "¿Qué es Docker y para qué se usa?"
                 )
         
-        response_text = f"Interesting answer 🎉\n\n{tech_q2}" if lang == 'en' else f"Interesante respuesta 🎉\n\n{tech_q2}"
+        # Add progress indicator for Free Mode
+        is_demo_mode = session.get('demo_mode') == 'full_interview'
+        if not is_demo_mode:
+            progress_text = "📊 *Progress: Question 2 of 3*\n\n" if lang == 'en' else "📊 *Progreso: Pregunta 2 de 3*\n\n"
+            response_text = f"Interesting answer 🎉\n\n{progress_text}{tech_q2}" if lang == 'en' else f"Interesante respuesta 🎉\n\n{progress_text}{tech_q2}"
+        else:
+            response_text = f"Interesting answer 🎉\n\n{tech_q2}" if lang == 'en' else f"Interesante respuesta 🎉\n\n{tech_q2}"
         # Store the full question text for validation
         session['data']['current_tech_question'] = tech_q2
         session['stage'] = 8
@@ -1792,6 +2137,16 @@ def process_message(phone_number, message_text):
         position = session['data'].get('position', '').lower()
         if 'data engineer' in position:
             question_topic = "Python Dynamic Typing"
+        elif 'backend developer' in position and 'django' in position:
+            question_topic = "Django API Endpoint"
+        elif 'full stack' in position and 'react' in position:
+            question_topic = "React Virtual DOM"
+        elif 'api developer' in position or ('rest' in position and 'graphql' in position):
+            question_topic = "API Versioning"
+        elif 'backend engineer' in position and 'node.js' in position:
+            question_topic = "Express Middleware"
+        elif 'software engineer' in position and 'fastapi' in position:
+            question_topic = "FastAPI Dependency Injection"
         elif 'backend' in position:
             question_topic = "Django API Endpoint"
         else:
@@ -1823,17 +2178,89 @@ def process_message(phone_number, message_text):
                     "¿Cómo maneja Apache Spark la tolerancia a fallos en un entorno distribuido?\n\n"
                     "💡 *Hint:* Menciona conceptos como: RDDs, lineage, transformaciones, fallo de nodo, reconstrucción"
                 )
-        elif 'backend' in position:
+        elif 'backend developer' in position and 'django' in position:
+            # Backend Developer (Python/Django)
             if lang == 'en':
                 tech_q3 = (
                     "🔧 *Question 3 of 3:*\n"
-                    "What is the purpose of Docker in backend development, and how would you use it with Django?\n\n"
-                    "💡 *Hint:* Mention concepts like: containers, Dockerfile, docker-compose, deployment, consistency"
+                    "What is Docker and how would you use it to deploy a Django backend application?\n\n"
+                    "💡 *Hint:* Mention concepts like: containers, Dockerfile, docker-compose, images, port mapping"
                 )
             else:
                 tech_q3 = (
                     "🔧 *Pregunta 3 de 3:*\n"
-                    "¿Cuál es el propósito de Docker en el desarrollo backend, y cómo lo usarías con Django?"
+                    "¿Qué es Docker y cómo lo usarías para desplegar una aplicación backend Django?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: contenedores, Dockerfile, docker-compose, imágenes, mapeo de puertos"
+                )
+        elif 'full stack' in position and 'react' in position:
+            # Full Stack Developer (Python/React)
+            if lang == 'en':
+                tech_q3 = (
+                    "🔧 *Question 3 of 3:*\n"
+                    "How would you manage state in a large React application? Compare different state management approaches.\n\n"
+                    "💡 *Hint:* Mention concepts like: Context API, Redux, Zustand, prop drilling, local vs global state"
+                )
+            else:
+                tech_q3 = (
+                    "🔧 *Pregunta 3 de 3:*\n"
+                    "¿Cómo manejarías el estado en una aplicación React grande? Compara diferentes enfoques de gestión de estado.\n\n"
+                    "💡 *Hint:* Menciona conceptos como: Context API, Redux, Zustand, prop drilling, estado local vs global"
+                )
+        elif 'api developer' in position or ('rest' in position and 'graphql' in position):
+            # API Developer (REST/GraphQL)
+            if lang == 'en':
+                tech_q3 = (
+                    "🔧 *Question 3 of 3:*\n"
+                    "What is rate limiting and how would you implement it to protect an API from abuse?\n\n"
+                    "💡 *Hint:* Mention concepts like: token bucket, sliding window, Redis, throttling, DDoS protection"
+                )
+            else:
+                tech_q3 = (
+                    "🔧 *Pregunta 3 de 3:*\n"
+                    "¿Qué es el rate limiting y cómo lo implementarías para proteger una API del abuso?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: token bucket, ventana deslizante, Redis, throttling, protección DDoS"
+                )
+        elif 'backend engineer' in position and 'node.js' in position:
+            # Backend Engineer (Node.js/Express)
+            if lang == 'en':
+                tech_q3 = (
+                    "🔧 *Question 3 of 3:*\n"
+                    "What is the difference between callback functions, Promises, and async/await in Node.js? When would you use each?\n\n"
+                    "💡 *Hint:* Mention concepts like: callback hell, error handling, readability, asynchronous flow"
+                )
+            else:
+                tech_q3 = (
+                    "🔧 *Pregunta 3 de 3:*\n"
+                    "¿Cuál es la diferencia entre funciones callback, Promises y async/await en Node.js? ¿Cuándo usarías cada una?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: callback hell, manejo de errores, legibilidad, flujo asíncrono"
+                )
+        elif 'software engineer' in position and 'fastapi' in position:
+            # Software Engineer (Python/FastAPI)
+            if lang == 'en':
+                tech_q3 = (
+                    "🔧 *Question 3 of 3:*\n"
+                    "What is Pydantic and how does FastAPI use it for request/response validation?\n\n"
+                    "💡 *Hint:* Mention concepts like: data validation, type coercion, automatic documentation, serialization"
+                )
+            else:
+                tech_q3 = (
+                    "🔧 *Pregunta 3 de 3:*\n"
+                    "¿Qué es Pydantic y cómo lo usa FastAPI para validación de request/response?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: validación de datos, coerción de tipos, documentación automática, serialización"
+                )
+        elif 'backend' in position:
+            # Fallback for other backend positions
+            if lang == 'en':
+                tech_q3 = (
+                    "🔧 *Question 3 of 3:*\n"
+                    "What is Docker and how would you use it to deploy a Django backend application?\n\n"
+                    "💡 *Hint:* Mention concepts like: containers, Dockerfile, docker-compose, images, port mapping"
+                )
+            else:
+                tech_q3 = (
+                    "🔧 *Pregunta 3 de 3:*\n"
+                    "¿Qué es Docker y cómo lo usarías para desplegar una aplicación backend Django?\n\n"
+                    "💡 *Hint:* Menciona conceptos como: contenedores, Dockerfile, docker-compose, imágenes, mapeo de puertos"
                 )
         else:
             if lang == 'en':
@@ -1847,7 +2274,13 @@ def process_message(phone_number, message_text):
                     "¿Qué es CI/CD? ¿Por qué es importante?"
                 )
         
-        response_text = f"Good 🎉\n\n{tech_q3}" if lang == 'en' else f"Bien 🎉\n\n{tech_q3}"
+        # Add progress indicator for Free Mode
+        is_demo_mode = session.get('demo_mode') == 'full_interview'
+        if not is_demo_mode:
+            progress_text = "📊 *Progress: Question 3 of 3*\n\n" if lang == 'en' else "📊 *Progreso: Pregunta 3 de 3*\n\n"
+            response_text = f"Good 🎉\n\n{progress_text}{tech_q3}" if lang == 'en' else f"Bien 🎉\n\n{progress_text}{tech_q3}"
+        else:
+            response_text = f"Good 🎉\n\n{tech_q3}" if lang == 'en' else f"Bien 🎉\n\n{tech_q3}"
         # Store the full question text for validation
         session['data']['current_tech_question'] = tech_q3
         session['stage'] = 9
@@ -1902,6 +2335,16 @@ def process_message(phone_number, message_text):
         position = session['data'].get('position', '').lower()
         if 'data engineer' in position:
             question_topic = "Apache Spark Fault Tolerance"
+        elif 'backend developer' in position and 'django' in position:
+            question_topic = "Docker Django Backend"
+        elif 'full stack' in position and 'react' in position:
+            question_topic = "React State Management"
+        elif 'api developer' in position or ('rest' in position and 'graphql' in position):
+            question_topic = "API Rate Limiting"
+        elif 'backend engineer' in position and 'node.js' in position:
+            question_topic = "Node.js Async Patterns"
+        elif 'software engineer' in position and 'fastapi' in position:
+            question_topic = "FastAPI Pydantic"
         elif 'backend' in position:
             question_topic = "Docker Django Backend"
         else:
@@ -1942,7 +2385,7 @@ def process_message(phone_number, message_text):
                 f"📊 Your technical score: *{avg_tech:.1f}/5.0*\n\n"
                 "🗣️ *Now let's evaluate your English.*\n\n"
                 "🇬🇧 *Question 1:*\n"
-                f"Describe your experience with {tech_stack} in 2-3 sentences.\n"
+                f"Describe your experience with {tech_stack}.\n"
                 "(Answer in English please)"
             )
         else:
@@ -1951,7 +2394,7 @@ def process_message(phone_number, message_text):
                 f"📊 Tu score técnico: *{avg_tech:.1f}/5.0*\n\n"
                 "🗣️ *Ahora evaluemos tu inglés.*\n\n"
                 "🇬🇧 *Question 1:*\n"
-                f"Describe your experience with {tech_stack} in 2-3 sentences.\n"
+                f"Describe your experience with {tech_stack}.\n"
                 "(Answer in English please)"
             )
         session['data']['english_questions'] = []
@@ -1977,7 +2420,7 @@ def process_message(phone_number, message_text):
                     "⚠️ *Please answer in English.*\n\n"
                     "This question evaluates your English level. Please respond in English.\n\n"
                     "🇬🇧 *Question 1:*\n"
-                    f"Describe your experience with {tech_stack} in 2-3 sentences.\n"
+                    f"Describe your experience with {tech_stack}.\n"
                     "(Answer in English please)"
                 )
             else:
@@ -1985,7 +2428,7 @@ def process_message(phone_number, message_text):
                     "⚠️ *Por favor responde en inglés.*\n\n"
                     "Esta pregunta evalúa tu nivel de inglés. Por favor responde en inglés.\n\n"
                     "🇬🇧 *Question 1:*\n"
-                    f"Describe your experience with {tech_stack} in 2-3 sentences.\n"
+                    f"Describe your experience with {tech_stack}.\n"
                     "(Answer in English please)"
                 )
             # Stay in same stage, don't advance
@@ -2025,7 +2468,7 @@ def process_message(phone_number, message_text):
                                         "⚠️ *Please provide your own answer to this question.*\n\n"
                                         "It looks like you might have copied a previous answer. This question asks about your experience, please answer specifically.\n\n"
                                         "🇬🇧 *Question 1:*\n"
-                                        f"Describe your experience with {tech_stack} in 2-3 sentences.\n"
+                                        f"Describe your experience with {tech_stack}.\n"
                                         "(Answer in English please)"
                                     )
                                 else:
@@ -2033,7 +2476,7 @@ def process_message(phone_number, message_text):
                                         "⚠️ *Por favor proporciona tu propia respuesta a esta pregunta.*\n\n"
                                         "Parece que copiaste una respuesta anterior. Esta pregunta pregunta sobre tu experiencia, por favor responde específicamente.\n\n"
                                         "🇬🇧 *Question 1:*\n"
-                                        f"Describe your experience with {tech_stack} in 2-3 sentences.\n"
+                                        f"Describe your experience with {tech_stack}.\n"
                                         "(Answer in English please)"
                                     )
                                 save_session(phone_number, session)
@@ -2063,9 +2506,9 @@ def process_message(phone_number, message_text):
             elif 'backend' in position or 'developer' in position:
                 tech_stack = "backend development (Python, Node.js, databases, etc.)"
             if lang == 'en':
-                response_text = f"⚠️ *{msg_en}*\n\n🇬🇧 *Question 1:*\nDescribe your experience with {tech_stack} in 2-3 sentences.\n(Answer in English please)"
+                response_text = f"⚠️ *{msg_en}*\n\n🇬🇧 *Question 1:*\nDescribe your experience with {tech_stack}.\n(Answer in English please)"
             else:
-                response_text = f"⚠️ *{msg_es}*\n\n🇬🇧 *Question 1:*\nDescribe your experience with {tech_stack} in 2-3 sentences.\n(Answer in English please)"
+                response_text = f"⚠️ *{msg_es}*\n\n🇬🇧 *Question 1:*\nDescribe your experience with {tech_stack}.\n(Answer in English please)"
             save_session(phone_number, session)
             return response_text
         
@@ -2091,7 +2534,7 @@ def process_message(phone_number, message_text):
             "Good! 😊\n\n"
             "🇬🇧 *Question 2:*\n"
             "What's your biggest professional achievement?\n"
-            "(2-3 sentences in English)"
+            "(Answer in English please)"
         )
         session['stage'] = 11
         save_session(phone_number, session)  # CRITICAL: Save before returning
@@ -2118,16 +2561,14 @@ def process_message(phone_number, message_text):
                         f"Excellent! ✅\n\n"
                         f"📊 English level: *{avg_english:.1f}/5.0*\n\n"
                         "💼 *Last section: Soft Skills*\n\n"
-                        "🤝 Tell me about a time you worked in a team to solve a difficult problem.\n"
-                        "(3-4 lines)"
+                        "🤝 Tell me about a time you worked in a team to solve a difficult problem."
                     )
                 else:
                     response_text = (
                         f"Excellent! ✅\n\n"
                         f"📊 English level: *{avg_english:.1f}/5.0*\n\n"
                         "💼 *Última sección: Soft Skills*\n\n"
-                        "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil.\n"
-                        "(3-4 líneas)"
+                        "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil."
                     )
                 session['stage'] = 12
                 save_session(phone_number, session)
@@ -2145,7 +2586,7 @@ def process_message(phone_number, message_text):
                     "This question evaluates your English level. Please respond in English.\n\n"
                     "🇬🇧 *Question 2:*\n"
                     "What's your biggest professional achievement?\n"
-                    "(2-3 sentences in English)"
+                    "(Answer in English please)"
                 )
             else:
                 response_text = (
@@ -2153,7 +2594,7 @@ def process_message(phone_number, message_text):
                     "Esta pregunta evalúa tu nivel de inglés. Por favor responde en inglés.\n\n"
                     "🇬🇧 *Question 2:*\n"
                     "What's your biggest professional achievement?\n"
-                    "(2-3 sentences in English)"
+                    "(Answer in English please)"
                 )
             # Stay in same stage, don't advance
             save_session(phone_number, session)
@@ -2168,7 +2609,7 @@ def process_message(phone_number, message_text):
                     "It looks like you might have copied a previous answer. This question asks about your achievement, please answer specifically.\n\n"
                     "🇬🇧 *Question 2:*\n"
                     "What's your biggest professional achievement?\n"
-                    "(2-3 sentences in English)"
+                    "(Answer in English please)"
                 )
             else:
                 response_text = (
@@ -2176,7 +2617,7 @@ def process_message(phone_number, message_text):
                     "Parece que copiaste una respuesta anterior. Esta pregunta pregunta sobre tu logro, por favor responde específicamente.\n\n"
                     "🇬🇧 *Question 2:*\n"
                     "What's your biggest professional achievement?\n"
-                    "(2-3 sentences in English)"
+                    "(Answer in English please)"
                 )
             save_session(phone_number, session)
             return response_text
@@ -2199,9 +2640,9 @@ def process_message(phone_number, message_text):
             }
             msg_en, msg_es = reason_messages.get(reason, ('Please provide a better answer.', 'Por favor proporciona una mejor respuesta.'))
             if lang == 'en':
-                response_text = f"⚠️ *{msg_en}*\n\n🇬🇧 *Question 2:*\nWhat's your biggest professional achievement?\n(2-3 sentences in English)"
+                response_text = f"⚠️ *{msg_en}*\n\n🇬🇧 *Question 2:*\nWhat's your biggest professional achievement?\n(Answer in English please)"
             else:
-                response_text = f"⚠️ *{msg_es}*\n\n🇬🇧 *Question 2:*\nWhat's your biggest professional achievement?\n(2-3 sentences in English)"
+                response_text = f"⚠️ *{msg_es}*\n\n🇬🇧 *Question 2:*\nWhat's your biggest professional achievement?\n(Answer in English please)"
             save_session(phone_number, session)
             return response_text
         
@@ -2223,16 +2664,14 @@ def process_message(phone_number, message_text):
                 f"Excellent! ✅\n\n"
                 f"📊 English level: *{avg_english:.1f}/5.0*\n\n"
                 "💼 *Last section: Soft Skills*\n\n"
-                "🤝 Tell me about a time you worked in a team to solve a difficult problem.\n"
-                "(3-4 lines)"
+                "🤝 Tell me about a time you worked in a team to solve a difficult problem."
             )
         else:
             response_text = (
                 f"Excellent! ✅\n\n"
                 f"📊 English level: *{avg_english:.1f}/5.0*\n\n"
                 "💼 *Última sección: Soft Skills*\n\n"
-                "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil.\n"
-                "(3-4 líneas)"
+                "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil."
             )
         session['stage'] = 12
     
@@ -2246,15 +2685,13 @@ def process_message(phone_number, message_text):
                 response_text = (
                     "⚠️ *Please provide your own answer to this question.*\n\n"
                     "It looks like you might have copied a previous answer. This question asks about teamwork, please answer specifically.\n\n"
-                    "🤝 Tell me about a time you worked in a team to solve a difficult problem.\n"
-                    "(3-4 lines)"
+                    "🤝 Tell me about a time you worked in a team to solve a difficult problem."
                 )
             else:
                 response_text = (
                     "⚠️ *Por favor proporciona tu propia respuesta a esta pregunta.*\n\n"
                     "Parece que copiaste una respuesta anterior. Esta pregunta pregunta sobre trabajo en equipo, por favor responde específicamente.\n\n"
-                    "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil.\n"
-                    "(3-4 líneas)"
+                    "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil."
                 )
             save_session(phone_number, session)
             return response_text
@@ -2277,9 +2714,9 @@ def process_message(phone_number, message_text):
             }
             msg_en, msg_es = reason_messages.get(reason, ('Please provide a better answer.', 'Por favor proporciona una mejor respuesta.'))
             if lang == 'en':
-                response_text = f"⚠️ *{msg_en}*\n\n🤝 Tell me about a time you worked in a team to solve a difficult problem.\n(3-4 lines)"
+                response_text = f"⚠️ *{msg_en}*\n\n🤝 Tell me about a time you worked in a team to solve a difficult problem."
             else:
-                response_text = f"⚠️ *{msg_es}*\n\n🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil.\n(3-4 líneas)"
+                response_text = f"⚠️ *{msg_es}*\n\n🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil."
             save_session(phone_number, session)
             return response_text
         
@@ -2656,7 +3093,7 @@ def process_message(phone_number, message_text):
         is_demo_mode = session.get('demo_mode') == 'full_interview'
         free_mode_insights = ""
         
-        if is_demo_mode:
+        if not is_demo_mode:  # Show enhanced insights in FREE MODE
             # Benchmarks for comparison
             BENCHMARK_TECH = 3.0
             BENCHMARK_ENGLISH = 3.0
@@ -2752,7 +3189,7 @@ def process_message(phone_number, message_text):
             )
         else:
             # Spanish insights (translate the English ones)
-            if is_demo_mode:
+            if not is_demo_mode:  # Show enhanced insights in FREE MODE
                 tech_insight_es = ""
                 english_insight_es = ""
                 soft_insight_es = ""
@@ -3303,9 +3740,17 @@ def show_answers_for_profile(session, stage=None):
     if demo_mode != 'full_interview':
         lang = session.get('language', 'en')
         if lang == 'en':
-            return "❌ First select a profile with *DEMO*"
+            return (
+                "ℹ️ *The ANSWERS command is only available in DEMO Mode.*\n\n"
+                "In Free Mode, please answer based on your own experience and knowledge.\n\n"
+                "💡 *Tip:* If you'd like to see example answers, start a new conversation and select *DEMO Mode* 🎬"
+            )
         else:
-            return "❌ Primero selecciona un perfil con *DEMO*"
+            return (
+                "ℹ️ *El comando RESPUESTAS solo está disponible en Modo DEMO.*\n\n"
+                "En Modo Libre, por favor responde basándote en tu propia experiencia y conocimiento.\n\n"
+                "💡 *Tip:* Si quieres ver respuestas de ejemplo, inicia una nueva conversación y selecciona *Modo DEMO* 🎬"
+            )
     
     profile_name = session.get('data', {}).get('name', '')
     current_stage = stage if stage is not None else session.get('stage', 0)
@@ -3349,19 +3794,19 @@ def show_answers_for_profile(session, stage=None):
             answer_text = answers[answer_key]
             stage_name = STAGES.get(current_stage, 'current')
             
+            # Return format: tip first, then separator, then answer
+            # Webhook will split and send in two messages
             if lang == 'en':
                 return (
-                    f"💡 *SUGGESTED ANSWER*\n\n"
-                    f"{answer_text}\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"💡 *Tip:* Copy and paste this answer, or modify it as needed"
+                    f"💡 *Tip:* Copy and paste this answer, or modify it as needed\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{answer_text}"
                 )
             else:
                 return (
-                    f"💡 *RESPUESTA SUGERIDA*\n\n"
-                    f"{answer_text}\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"💡 *Tip:* Copia y pega esta respuesta, o modifícala según necesites"
+                    f"💡 *Tip:* Copia y pega esta respuesta, o modifícala según necesites\n\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"{answer_text}"
                 )
     
     # Show all answers
@@ -3783,8 +4228,52 @@ def webhook():
                 help_match = fuzzy_match_command(incoming_msg, ['AYUDA', 'HELP', '?', 'H'], threshold=80)
                 
                 if answers_match:
-                    # ANSWERS command - process it
+                    # ANSWERS command - process it (works in both Demo and Free Mode, but shows appropriate message)
                     response_text = show_answers_for_profile(session)
+                    
+                    # Check if we need to send in two separate messages (Demo Mode with current stage answer)
+                    demo_mode = session.get('demo_mode', '')
+                    current_stage = session.get('stage', 0)
+                    
+                    # If in demo mode and showing a specific answer (not all answers), send in two messages
+                    if demo_mode == 'full_interview' and current_stage in [0.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
+                        # Check if response contains tip separator (indicates two-part message)
+                        if "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" in response_text:
+                            # Split response into tip and answer
+                            parts = response_text.split("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            if len(parts) == 2:
+                                tip_part = parts[0].strip()
+                                answer_part = parts[1].strip()
+                                
+                                # Send tip first via webhook response
+                                resp = MessagingResponse()
+                                resp.message(tip_part)
+                                
+                                # Send answer second (using Twilio API directly)
+                                try:
+                                    if client and TWILIO_ACCOUNT_SID and TWILIO_ACCOUNT_SID != 'your_account_sid':
+                                        import threading
+                                        def send_answer():
+                                            time.sleep(0.5)  # Small delay between messages
+                                            client.messages.create(
+                                                body=answer_part,
+                                                from_=TWILIO_WHATSAPP_NUMBER,
+                                                to=from_number
+                                            )
+                                            print(f"[INFO] Sent answer as second message to {from_number}")
+                                        
+                                        threading.Thread(target=send_answer, daemon=True).start()
+                                    
+                                    save_session(from_number, session)
+                                    response_str = str(resp)
+                                    response = make_response(response_str)
+                                    response.headers['Content-Type'] = 'text/xml; charset=utf-8'
+                                    return response
+                                except Exception as e:
+                                    print(f"[ERROR] Failed to send answer as second message: {e}")
+                                    # Fallback: send as single message
+                    
+                    save_session(from_number, session)
                 elif help_match:
                     # HELP command - process it
                     response_text = show_help_message(session)
