@@ -935,7 +935,7 @@ def get_progress_bar(current, total, bar_length=20):
     percent = (current / total) * 100
     filled = int((current / total) * bar_length)
     bar = "█" * filled + "░" * (bar_length - filled)
-    return f"━━━━━━━━━━━━━━━━━━\n📊 Progress: {bar} {percent:.0f}% ({current}/{total} questions)\n━━━━━━━━━━━━━━━━━━"
+    return f"━━━━━━━━━━━━━━━━━━\n📊 Progress: {bar} {percent:.0f}%\n━━━━━━━━━━━━━━━━━━"
 
 def get_progress_info(stage):
     """Get progress information for current stage"""
@@ -1112,34 +1112,9 @@ def process_message(phone_number, message_text):
     
     print(f"[DEBUG] About to check stage, stage == {stage}")
     
-    if stage == -1:  # Language Selection (first step after join code)
-        user_choice = message_text.strip()
-        
-        if user_choice in ['1', 'ENGLISH', 'english', 'English', 'EN', 'en']:
-            session['language'] = 'en'
-            session['language_locked'] = True
-            session['stage'] = 0
-            save_session(phone_number, session)
-            # Process with empty message to trigger welcome in English
-            response_text = process_message(phone_number, "")
-        elif user_choice in ['2', 'ESPAÑOL', 'español', 'Español', 'ES', 'es', 'SPANISH', 'spanish', 'Spanish']:
-            session['language'] = 'es'
-            session['language_locked'] = True
-            session['stage'] = 0
-            save_session(phone_number, session)
-            # Process with empty message to trigger welcome in Spanish
-            response_text = process_message(phone_number, "")
-        else:
-            # Invalid choice - ask again
-            response_text = (
-                "❌ *Please choose an option / Por favor elige una opción:*\n\n"
-                "1️⃣ *English* 🇬🇧\n"
-                "2️⃣ *Español* 🇪🇸\n\n"
-                "Reply *1* or *2* / Responde *1* o *2* 😊"
-            )
-            # Stay in same stage
+    # Stage -1 is handled below after stage 0.6 to avoid conflicts
     
-    elif stage == 0:  # Welcome + Privacy Notice
+    if stage == 0:  # Welcome + Privacy Notice
         print(f"[DEBUG] Entering welcome stage response")
         
         # Get language from session (should be set in stage -1 or from demo mode)
@@ -1420,18 +1395,159 @@ def process_message(phone_number, message_text):
                     "¿Qué idioma? Responde *1* o *2* 😊"
                 )
         elif user_choice in ['2', 'LIBRE', 'libre', 'Libre', 'FREE', 'free', 'Free']:
-            # User wants free mode - continue with normal flow
+            # User wants free mode - first select language for consistency
             # Remove demo_mode key completely to ensure clean free mode
             if 'demo_mode' in session:
                 del session['demo_mode']
-            session['stage'] = 1
+            # Set a flag to indicate this is Free Mode language selection
+            session['free_mode_language_selection'] = True
+            session['stage'] = -1  # Go to language selection first (same as DEMO mode)
             save_session(phone_number, session)  # CRITICAL: Save before returning
+            
+            # Show language selection for Free Mode
+            response_text = (
+                "✅ *Free Mode activated* 🆓\n\n"
+                "Perfect! Let's start your interview. 🌸\n\n"
+                "First, choose your language / Primero, elige tu idioma:\n\n"
+                "1️⃣ *English* 🇬🇧\n"
+                "2️⃣ *Español* 🇪🇸\n\n"
+                "Which language? / ¿Qué idioma? Reply *1* or *2* 😊"
+            )
+        else:
+            # Invalid choice
+            if lang == 'en':
+                response_text = (
+                    "⚠️ *Invalid option.*\n\n"
+                    "Please choose:\n"
+                    "1️⃣ *DEMO Mode* 🎬\n"
+                    "2️⃣ *Free Mode* 🆓\n\n"
+                    "Reply *1* or *2* 😊"
+                )
+            else:
+                response_text = (
+                    "⚠️ *Opción inválida.*\n\n"
+                    "Por favor elige:\n"
+                    "1️⃣ *Modo DEMO* 🎬\n"
+                    "2️⃣ *Modo Libre* 🆓\n\n"
+                    "Responde *1* o *2* 😊"
+                )
+    
+    elif stage == -1:  # Language Selection (for both DEMO and Free Mode)
+        # CRITICAL FIX: If language is already set and locked, skip language selection
+        if session.get('language_locked', False) and session.get('language'):
+            print(f"[DEBUG] Stage -1: Language already set ({session.get('language')}), skipping selection and proceeding")
+            lang = session.get('language')
+            # Check if this is DEMO mode or Free Mode
+            is_demo_mode = session.get('demo_mode') == 'select_language'
+            is_free_mode = session.get('free_mode_language_selection', False)
+            
+            if is_demo_mode:
+                session['stage'] = 0
+                save_session(phone_number, session)
+                # Process with empty message to trigger profile selection
+                return process_message(phone_number, "")
+            elif is_free_mode or not is_demo_mode:
+                session['stage'] = 1
+                if 'demo_mode' in session:
+                    del session['demo_mode']
+                if 'free_mode_language_selection' in session:
+                    del session['free_mode_language_selection']
+                save_session(phone_number, session)
+                # Process with empty message to trigger name question
+                return process_message(phone_number, "")
+        
+        user_choice = message_text.strip()
+        lang = None
+        
+        # Debug: Log current session state
+        print(f"[DEBUG] Stage -1: Processing language selection for {phone_number}")
+        print(f"[DEBUG] Session state: demo_mode={session.get('demo_mode')}, free_mode_flag={session.get('free_mode_language_selection')}, stage={session.get('stage')}, language_locked={session.get('language_locked')}")
+        
+        if user_choice in ['1', 'ENGLISH', 'english', 'English', 'EN', 'en']:
+            lang = 'en'
+        elif user_choice in ['2', 'ESPAÑOL', 'español', 'Español', 'ESPAÑOL', 'ES', 'es']:
+            lang = 'es'
+        else:
+            # Invalid language choice - stay in stage -1
+            print(f"[DEBUG] Invalid language choice: '{user_choice}', staying in stage -1")
+            response_text = (
+                "⚠️ *Invalid option.*\n\n"
+                "Please choose:\n"
+                "1️⃣ *English* 🇬🇧\n"
+                "2️⃣ *Español* 🇪🇸\n\n"
+                "Reply *1* or *2* 😊\n\n"
+                "⚠️ *Opción inválida.*\n\n"
+                "Por favor elige:\n"
+                "1️⃣ *English* 🇬🇧\n"
+                "2️⃣ *Español* 🇪🇸\n\n"
+                "Responde *1* o *2* 😊"
+            )
+            return response_text
+        
+        # Language selected - set it and proceed
+        session['language'] = lang
+        session['language_locked'] = True
+        
+        # Check if this is DEMO mode or Free Mode
+        # IMPORTANT: Check flags BEFORE clearing them
+        is_demo_mode = session.get('demo_mode') == 'select_language'
+        is_free_mode = session.get('free_mode_language_selection', False)
+        
+        # Debug log BEFORE clearing flags
+        print(f"[DEBUG] Stage -1: Language '{lang}' selected. is_demo_mode={is_demo_mode}, is_free_mode={is_free_mode}")
+        
+        # Clear the flag after checking (but save it first for debugging)
+        free_mode_flag_was_set = is_free_mode
+        if 'free_mode_language_selection' in session:
+            del session['free_mode_language_selection']
+        
+        if is_demo_mode:
+            # DEMO mode - continue to profile selection
+            session['stage'] = 0
+            save_session(phone_number, session)
             
             if lang == 'en':
                 response_text = (
+                    "✅ *Language selected: English* 🇬🇧\n\n"
+                    "Now choose a profile:\n\n"
+                    "1️⃣ *Ana García*\n"
+                    "   Senior Data Engineer\n"
+                    "   Expected score: 4.87/5.0\n\n"
+                    "2️⃣ *Luis Martínez*\n"
+                    "   Junior Backend Developer\n"
+                    "   Expected score: 2.9/5.0\n\n"
+                    "Which profile? Reply *1* or *2* 😊"
+                )
+            else:
+                response_text = (
+                    "✅ *Idioma seleccionado: Español* 🇪🇸\n\n"
+                    "Ahora elige un perfil:\n\n"
+                    "1️⃣ *Ana García*\n"
+                    "   Data Engineer Senior\n"
+                    "   Score esperado: 4.87/5.0\n\n"
+                    "2️⃣ *Luis Martínez*\n"
+                    "   Backend Developer Junior\n"
+                    "   Score esperado: 2.9/5.0\n\n"
+                    "¿Qué perfil? Responde *1* o *2* 😊"
+                )
+        elif is_free_mode or not is_demo_mode:
+            # Free Mode - start interview
+            # Use is_free_mode OR check if demo_mode is not set (fallback for Free Mode)
+            print(f"[DEBUG] Stage -1: Entering Free Mode branch. Setting stage to 1")
+            session['stage'] = 1
+            # Ensure demo_mode is cleared
+            if 'demo_mode' in session:
+                del session['demo_mode']
+            # CRITICAL: Save session BEFORE generating response to ensure stage is persisted
+            save_session(phone_number, session)
+            print(f"[DEBUG] Stage -1: Session saved with stage={session.get('stage')}, language={session.get('language')}")
+            
+            if lang == 'en':
+                response_text = (
+                    "✅ *Language selected: English* 🇬🇧\n\n"
                     "✨ *Welcome to SAORI AI!* 🌸\n\n"
                     "I'm *Saori* — your AI-powered recruitment assistant.\n\n"
-                    "I'll guide you through a quick evaluation (about 10 minutes) where I'll ask about:\n\n"
+                    "I'll guide you through a quick evaluation (about 13 minutes) where I'll ask about:\n\n"
                     "✅ Your technical skills (3 questions)\n"
                     "✅ Your English level (2 questions)\n"
                     "✅ Your teamwork experience (1 question)\n"
@@ -1444,36 +1560,20 @@ def process_message(phone_number, message_text):
                 )
             else:
                 response_text = (
+                    "✅ *Idioma seleccionado: Español* 🇪🇸\n\n"
                     "✨ *¡Bienvenido a SAORI AI!* 🌸\n\n"
                     "Soy *Saori* — tu asistente de reclutamiento con IA.\n\n"
-                    "Te guiaré en una evaluación rápida (unos 10 minutos) donde te preguntaré sobre:\n\n"
+                    "Te guiaré en una evaluación rápida (aproximadamente 13 minutos) donde preguntaré sobre:\n\n"
                     "✅ Tus habilidades técnicas (3 preguntas)\n"
                     "✅ Tu nivel de inglés (2 preguntas)\n"
-                    "✅ Tu experiencia de trabajo en equipo (1 pregunta)\n"
-                    "✅ Tu perfil profesional\n\n"
+                    "✅ Tu experiencia en equipo (1 pregunta)\n"
+                    "✅ Tu experiencia profesional\n\n"
                     "Todo es confidencial y se usa solo para tu proceso de reclutamiento.\n\n"
                     "━━━━━━━━━━━━━━━━━━\n\n"
                     "👤 *¡Empecemos! ¿Cuál es tu nombre completo?*\n\n"
                     "💡 *Ejemplo:* Juan Pérez, María García\n"
-                    "💡 *Tip:* Puedes escribir *REINICIAR* en cualquier momento para empezar de nuevo."
+                    "💡 *Tip:* Escribe *REINICIAR* en cualquier momento para empezar de nuevo."
                 )
-        else:
-            # Invalid choice - ask again
-            if lang == 'en':
-                response_text = (
-                    "❌ *Please choose an option:*\n\n"
-                    "1️⃣ *DEMO Mode* 🎬 - Test with sample profiles\n"
-                    "2️⃣ *Free Mode* 🆓 - Start your own interview\n\n"
-                    "Reply *1* or *2* 😊"
-                )
-            else:
-                response_text = (
-                    "❌ *Por favor elige una opción:*\n\n"
-                    "1️⃣ *Modo DEMO* 🎬 - Probar con perfiles de ejemplo\n"
-                    "2️⃣ *Modo Libre* 🆓 - Iniciar tu propia entrevista\n\n"
-                    "Responde *1* o *2* 😊"
-                )
-            # Stay in same stage
     
     elif stage == 1:  # Name
         # Extract name intelligently (remove "mi nombre es", "me llamo", etc.)
@@ -1621,7 +1721,7 @@ def process_message(phone_number, message_text):
                 "1️⃣ Remote\n"
                 "2️⃣ Hybrid\n"
                 "3️⃣ On-site\n\n"
-                "Reply with number or name."
+                "Reply with number only (1, 2, or 3)."
             )
         else:
             response_text = (
@@ -1629,7 +1729,7 @@ def process_message(phone_number, message_text):
                 "1️⃣ Remoto\n"
                 "2️⃣ Híbrido\n"
                 "3️⃣ Presencial\n\n"
-                "Responde con el número o nombre."
+                "Responde solo con el número (1, 2 o 3)."
             )
         session['stage'] = 5
     
@@ -1637,31 +1737,27 @@ def process_message(phone_number, message_text):
         user_choice = message_text.strip().upper()
         lang = session.get('language', 'es')
         
-        # Valid options for modality
-        valid_options_en = ['1', '2', '3', 'REMOTE', 'HYBRID', 'ON-SITE', 'ONSITE', 'ON SITE']
-        valid_options_es = ['1', '2', '3', 'REMOTO', 'HÍBRIDO', 'HIBRIDO', 'PRESENCIAL']
+        # Valid options for modality - ONLY NUMBERS
+        valid_options = ['1', '2', '3']
         
-        # Check if valid
-        is_valid = False
+        # Check if valid (only numbers accepted)
+        is_valid = user_choice in valid_options
         modality_value = None
         
-        if lang == 'en':
-            if user_choice in valid_options_en:
-                is_valid = True
-                if user_choice in ['1', 'REMOTE']:
+        if is_valid:
+            if lang == 'en':
+                if user_choice == '1':
                     modality_value = 'Remote'
-                elif user_choice in ['2', 'HYBRID']:
+                elif user_choice == '2':
                     modality_value = 'Hybrid'
-                elif user_choice in ['3', 'ON-SITE', 'ONSITE', 'ON SITE']:
+                elif user_choice == '3':
                     modality_value = 'On-site'
-        else:
-            if user_choice in valid_options_es:
-                is_valid = True
-                if user_choice in ['1', 'REMOTO']:
+            else:
+                if user_choice == '1':
                     modality_value = 'Remoto'
-                elif user_choice in ['2', 'HÍBRIDO', 'HIBRIDO']:
+                elif user_choice == '2':
                     modality_value = 'Híbrido'
-                elif user_choice in ['3', 'PRESENCIAL']:
+                elif user_choice == '3':
                     modality_value = 'Presencial'
         
         if is_valid:
@@ -3065,8 +3161,8 @@ def process_message(phone_number, message_text):
         # use_bert=True para activar mejoras con BERT (puede desactivarse si hay problemas)
         # Con timeout real y manejo robusto de errores para garantizar experiencia fluida
         try:
-            import time
-            import threading
+            # Use global threading and time modules (imported at top of file)
+            # Don't import locally to avoid scope conflicts
             
             # Variables para timeout multiplataforma
             inconsistencies_result = [None]
@@ -3851,7 +3947,7 @@ DEMO_ANSWERS = {
         'tech_q2': 'I would create a view with Django REST Framework, use a serializer for the User model, and return JSON data.',
         'tech_q3': 'Docker packages the app with dependencies into containers for consistent deployment. I\'d use Dockerfile and docker-compose with Django.',
         'english_q1': 'I do not have experience using Python',
-        'english_q2': 'I do not have an answer right now',
+        'english_q2': 'I don\'t really have an answer right now. I\'ve been thinking about it, but honestly, I\'m not sure what to say. I think I should know, or at least have some kind of response, but the truth is… I don\'t.',
         'soft_skills': 'Tuvimos un incidente y fue necesario llamar a los managers y trabajar en equipo para resolverlo',
         'final': 'Tengo las habilidades técnicas para desempeñarme correctamente en la posición'
     }
@@ -4302,12 +4398,18 @@ def webhook():
             # Get fresh session and show language selection first
             session = get_session(from_number)
             # Set stage to -1 to trigger language selection
+            # This is for join code, so it's not DEMO or Free Mode yet
             session['stage'] = -1
+            # Clear any mode flags to ensure clean state
+            if 'demo_mode' in session:
+                del session['demo_mode']
+            if 'free_mode_language_selection' in session:
+                del session['free_mode_language_selection']
             save_session(from_number, session)
             
             # Show language selection message
             response_text = (
-                "🌸 *¡Bienvenido a SAORI AI Core!* / *Welcome to SAORI AI Core!* 🌸\n\n"
+                "🌸 *¡Bienvenido a SAORI AI Powered!* / *Welcome to SAORI AI Powered!* 🌸\n\n"
                 "Primero, elige tu idioma / First, choose your language:\n\n"
                 "1️⃣ *English* 🇬🇧\n"
                 "2️⃣ *Español* 🇪🇸\n\n"
@@ -4358,28 +4460,24 @@ def webhook():
             # Create fresh session
             session = get_session(from_number)
             session['stage'] = -1  # Stage -1 = Language selection
+            # Clear any mode flags to ensure clean state
+            if 'demo_mode' in session:
+                del session['demo_mode']
+            if 'free_mode_language_selection' in session:
+                del session['free_mode_language_selection']
             save_session(from_number, session)
             
             # Send welcome message automatically
             response_text = (
-                "🌸 *¡Bienvenido a SAORI AI Core!* / *Welcome to SAORI AI Core!* 🌸\n\n"
-                "Soy *Saori* — un asistente de IA para evaluación de candidatos en tiempo real.\n\n"
-                "📋 *¿Qué puedo hacer?* / *What can I do?*\n"
+                "🌸 *¡Bienvenido a SAORI AI Powered!* / *Welcome to SAORI AI Powered!* 🌸\n\n"
+                "📋 *¿Qué puedo hacer?* / *What can I do?*\n\n"
                 "• Evaluar candidatos en tiempo real\n"
                 "• Analizar habilidades técnicas, inglés y soft skills\n"
                 "• Generar reportes completos con Trust Score\n\n"
-                "🚀 *Para empezar rápido:* / *To start quickly:*\n"
-                "Envía *DEMO* para probar con perfiles de ejemplo (recomendado para jueces)\n"
-                "Send *DEMO* to test with sample profiles (recommended for judges)\n\n"
-                "O elige tu idioma para comenzar / Or choose your language to start:\n"
+                "Primero, elige tu idioma / First, choose your language:\n"
                 "1️⃣ *English* 🇬🇧\n"
                 "2️⃣ *Español* 🇪🇸\n\n"
-                "💡 *Comandos disponibles:* / *Available commands:*\n"
-                "• *DEMO* - Modo demostración / Demo mode\n"
-                "• *HELP* - Ayuda en cualquier momento / Help anytime\n"
-                "• *RESTART* - Reiniciar / Restart\n\n"
-                "¿Qué prefieres? Responde *DEMO* o elige *1* o *2* 😊\n"
-                "What do you prefer? Reply *DEMO* or choose *1* or *2* 😊"
+                "¿Qué idioma? / Which language? Just reply: *1* or *2* 😊"
             )
             
             # Create Twilio response
@@ -4562,7 +4660,7 @@ def webhook():
                                 # Send answer second (using Twilio API directly)
                                 try:
                                     if client and TWILIO_ACCOUNT_SID and TWILIO_ACCOUNT_SID != 'your_account_sid':
-                                        import threading
+                                        # Use global threading module (imported at top of file)
                                         def send_answer():
                                             time.sleep(0.5)  # Small delay between messages
                                             client.messages.create(
@@ -4637,8 +4735,11 @@ def webhook():
                     # Check if this could be a valid flow response
                     is_valid_flow_response = False
                     
+                    # Stage -1 handles language selection - "1" and "2" are valid
+                    if current_stage == -1:
+                        is_valid_flow_response = True
                     # Stage 0.6 handles DEMO/Free mode selection - "1" and "2" are valid
-                    if current_stage == 0.6:
+                    elif current_stage == 0.6:
                         is_valid_flow_response = True
                     # Demo mode active - process as demo response
                     elif session.get('demo_mode') and session.get('demo_mode') != 'full_interview':
@@ -4708,7 +4809,7 @@ def webhook():
         
         # CRITICAL: Handle long messages by splitting into multiple messages
         # WhatsApp limit is 1600 chars per message, but Twilio may concatenate, so use smaller limit
-        MAX_MESSAGE_LENGTH = 1400  # Reduced to avoid Twilio concatenation issues
+        MAX_MESSAGE_LENGTH = 1000  # Reduced to 1000 to ensure better message splitting and avoid truncation
         if len(sanitized_text) > MAX_MESSAGE_LENGTH:
             print(f"[WARNING] Message too long ({len(sanitized_text)} chars), splitting into multiple messages")
             
@@ -4789,6 +4890,8 @@ def webhook():
                     TWILIO_AUTH_TOKEN and TWILIO_AUTH_TOKEN != 'your_auth_token'):
                     # Send remaining parts asynchronously using Twilio API
                     try:
+                        # CRITICAL: Ensure threading is available (imported at top level)
+                        # Use the global threading module, not a local import
                         def send_remaining_parts():
                             for i, part in enumerate(parts[1:], start=2):
                                 try:
@@ -4816,8 +4919,15 @@ def webhook():
                                     print(f"[TRACEBACK] {traceback.format_exc()}")
                         
                         # Send remaining parts in background thread
-                        thread = threading.Thread(target=send_remaining_parts, daemon=True)
+                        # Use global threading module (imported at top of file)
+                        # CRITICAL: Add delay before starting thread to ensure part 1 is sent first
+                        def start_thread_with_delay():
+                            time.sleep(0.5)  # Wait 0.5s to ensure part 1 is sent via webhook response first
+                            send_remaining_parts()
+                        
+                        thread = threading.Thread(target=start_thread_with_delay, daemon=True)
                         thread.start()
+                        print(f"[INFO] Started thread to send {len(parts)-1} remaining parts (with 0.5s delay to ensure part 1 is sent first)")
                     except Exception as e:
                         print(f"[ERROR] Failed to start thread for remaining parts: {e}")
                         import traceback
