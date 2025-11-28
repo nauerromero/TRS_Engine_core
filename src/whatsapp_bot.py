@@ -929,6 +929,36 @@ EMOTION_EMOJIS = {
     'negative': '😞'
 }
 
+# Helper function for progress visualization
+def get_progress_bar(current, total, bar_length=20):
+    """Generate visual progress bar"""
+    percent = (current / total) * 100
+    filled = int((current / total) * bar_length)
+    bar = "█" * filled + "░" * (bar_length - filled)
+    return f"━━━━━━━━━━━━━━━━━━\n📊 Progress: {bar} {percent:.0f}% ({current}/{total} questions)\n━━━━━━━━━━━━━━━━━━"
+
+def get_progress_info(stage):
+    """Get progress information for current stage"""
+    # Total questions: 6 basic info + 3 technical + 2 english + 1 soft skills + 1 final = 13
+    stage_to_question = {
+        1: 1,   # Name
+        2: 2,   # Position
+        3: 3,   # Availability
+        4: 4,   # Salary
+        5: 5,   # Modality
+        6: 6,   # Zone
+        7: 7,   # Tech Q1
+        8: 8,   # Tech Q2
+        9: 9,   # Tech Q3
+        10: 10, # English Q1
+        11: 11, # English Q2
+        12: 12, # Soft Skills
+        13: 13, # Final Question
+    }
+    current_q = stage_to_question.get(stage, 0)
+    total_q = 13
+    return current_q, total_q
+
 def get_session(phone_number):
     """Get or create session for phone number"""
     if phone_number not in sessions:
@@ -1271,24 +1301,42 @@ def process_message(phone_number, message_text):
                 if lang == 'en':
                     response_text = (
                         "✨ *Great! Thank you for trusting me.* 🌸\n\n"
-                        "Now, how would you like to proceed?\n\n"
-                        "1️⃣ *DEMO Mode* 🎬\n"
-                        "   Test with sample profiles (Ana or Luis)\n\n"
-                        "2️⃣ *Free Mode* 🆓\n"
-                        "   Start your own interview\n\n"
-                        "Which option? Reply *1* or *2* 😊\n\n"
-                        "💡 *Tip:* Type *RESTART* anytime to start over."
+                        "🎬 *RECOMMENDED FOR JUDGES:*\n"
+                        "Send *DEMO* to test with pre-configured profiles (Ana or Luis)\n\n"
+                        "Or choose a mode:\n"
+                        "1️⃣ *DEMO Mode* 🎬 - Test with sample profiles (Ana/Luis)\n"
+                        "   → You'll see suggested answers with *ANSWERS*\n"
+                        "   → Perfect for demonstration\n"
+                        "   → Estimated time: 5-7 minutes\n\n"
+                        "2️⃣ *Free Mode* 🆓 - Start your own interview\n"
+                        "   → You'll answer all questions yourself\n"
+                        "   → Estimated time: 10-15 minutes\n\n"
+                        "💡 *Tip for judges:* Use *DEMO* to see the system in action quickly\n\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        "💡 *Quick commands:*\n"
+                        "• *HELP* - Help | *RESTART* - Restart\n"
+                        "━━━━━━━━━━━━━━━━━━\n\n"
+                        "Reply *DEMO*, *1* or *2* 😊"
                     )
                 else:
                     response_text = (
                         "✨ *¡Genial! Gracias por confiar en mí.* 🌸\n\n"
-                        "Ahora, ¿cómo te gustaría proceder?\n\n"
-                        "1️⃣ *Modo DEMO* 🎬\n"
-                        "   Probar con perfiles de ejemplo (Ana o Luis)\n\n"
-                        "2️⃣ *Modo Libre* 🆓\n"
-                        "   Iniciar tu propia entrevista\n\n"
-                        "¿Qué opción? Responde *1* o *2* 😊\n\n"
-                        "💡 *Tip:* Puedes escribir *REINICIAR* en cualquier momento para empezar de nuevo."
+                        "🎬 *RECOMENDADO PARA JUECES:*\n"
+                        "Envía *DEMO* para probar con perfiles pre-configurados (Ana o Luis)\n\n"
+                        "O elige un modo:\n"
+                        "1️⃣ *Modo DEMO* 🎬 - Probar con perfiles de ejemplo (Ana/Luis)\n"
+                        "   → Verás respuestas sugeridas con *RESPUESTAS*\n"
+                        "   → Perfecto para demostración\n"
+                        "   → Tiempo estimado: 5-7 minutos\n\n"
+                        "2️⃣ *Modo Libre* 🆓 - Iniciar tu propia entrevista\n"
+                        "   → Responderás todas las preguntas tú mismo\n"
+                        "   → Tiempo estimado: 10-15 minutos\n\n"
+                        "💡 *Tip para jueces:* Usa *DEMO* para ver el sistema en acción rápidamente\n\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        "💡 *Comandos rápidos:*\n"
+                        "• *AYUDA* - Ayuda | *REINICIAR* - Reiniciar\n"
+                        "━━━━━━━━━━━━━━━━━━\n\n"
+                        "Responde *DEMO*, *1* o *2* 😊"
                     )
                 session['stage'] = 0.6  # New stage: DEMO or Free mode selection
                 save_session(phone_number, session)
@@ -1329,23 +1377,47 @@ def process_message(phone_number, message_text):
             
             if lang == 'en':
                 response_text = (
-                    "🎬 *DEMO MODE* 🌸\n\n"
-                    "Let's test the system! First, choose the language:\n\n"
+                    "✅ *DEMO Mode activated* 🎬\n\n"
+                    "Perfect for demonstration! 🌸\n\n"
+                    "📋 *What you'll see:*\n"
+                    "• Pre-configured profiles (Ana García or Luis Martínez)\n"
+                    "• Suggested answers available with *ANSWERS*\n"
+                    "• Complete evaluation with expected scores\n"
+                    "• Trust Score and emotional analysis\n\n"
+                    "👤 *Available profiles:*\n"
+                    "• Ana García - Senior Data Engineer (Expected score: 4.87/5.0)\n"
+                    "• Luis Martínez - Junior Backend Developer (Expected score: 2.9/5.0)\n\n"
+                    "💡 *Tip:* At any time during the interview, send *ANSWERS* to see suggested answers.\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    "💡 *Quick commands:*\n"
+                    "• *HELP* - Help | *RESTART* - Restart\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
+                    "Now choose your language:\n"
                     "1️⃣ *English* 🇬🇧\n"
                     "2️⃣ *Español* 🇪🇸\n\n"
-                    "Which language? Just reply: *1* or *2* 😊\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    "📖 Or send *HELP* or *AYUDA* anytime for help"
+                    "Which language? Reply *1* or *2* 😊"
                 )
             else:
                 response_text = (
-                    "🎬 *MODO DEMO* 🌸\n\n"
-                    "¡Probemos el sistema! Primero, elige el idioma:\n\n"
+                    "✅ *Modo DEMO activado* 🎬\n\n"
+                    "¡Perfecto para demostración! 🌸\n\n"
+                    "📋 *Lo que verás:*\n"
+                    "• Perfiles pre-configurados (Ana García o Luis Martínez)\n"
+                    "• Respuestas sugeridas disponibles con *RESPUESTAS*\n"
+                    "• Evaluación completa con scores esperados\n"
+                    "• Trust Score y análisis emocional\n\n"
+                    "👤 *Perfiles disponibles:*\n"
+                    "• Ana García - Data Engineer Senior (Score esperado: 4.87/5.0)\n"
+                    "• Luis Martínez - Backend Developer Junior (Score esperado: 2.9/5.0)\n\n"
+                    "💡 *Tip:* En cualquier momento durante la entrevista, envía *RESPUESTAS* para ver respuestas sugeridas.\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    "💡 *Comandos rápidos:*\n"
+                    "• *AYUDA* - Ayuda | *REINICIAR* - Reiniciar\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
+                    "Ahora elige tu idioma:\n"
                     "1️⃣ *English* 🇬🇧\n"
                     "2️⃣ *Español* 🇪🇸\n\n"
-                    "¿Qué idioma? Solo responde: *1* o *2* 😊\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-                    "📖 O envía *AYUDA* en cualquier momento para ayuda"
+                    "¿Qué idioma? Responde *1* o *2* 😊"
                 )
         elif user_choice in ['2', 'LIBRE', 'libre', 'Libre', 'FREE', 'free', 'Free']:
             # User wants free mode - continue with normal flow
@@ -1365,7 +1437,7 @@ def process_message(phone_number, message_text):
                     "✅ Your teamwork experience (1 question)\n"
                     "✅ Your professional background\n\n"
                     "Everything is confidential and used only for your recruitment process.\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     "👤 *Let's start! What's your full name?*\n\n"
                     "💡 *Example:* John Smith, María García\n"
                     "💡 *Tip:* Type *RESTART* anytime to start over."
@@ -1380,7 +1452,7 @@ def process_message(phone_number, message_text):
                     "✅ Tu experiencia de trabajo en equipo (1 pregunta)\n"
                     "✅ Tu perfil profesional\n\n"
                     "Todo es confidencial y se usa solo para tu proceso de reclutamiento.\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     "👤 *¡Empecemos! ¿Cuál es tu nombre completo?*\n\n"
                     "💡 *Ejemplo:* Juan Pérez, María García\n"
                     "💡 *Tip:* Puedes escribir *REINICIAR* en cualquier momento para empezar de nuevo."
@@ -1407,7 +1479,7 @@ def process_message(phone_number, message_text):
         # Extract name intelligently (remove "mi nombre es", "me llamo", etc.)
         name = extract_name(message_text)
         session['data']['name'] = name
-        emotion = session['emotions'][-1]
+        emotion = session['emotions'][-1] if session['emotions'] else {'emotion': 'neutral', 'confidence': 0.5}
         lang = session.get('language', 'es')
         
         # Build positions list (use session-specific positions if available)
@@ -1790,6 +1862,10 @@ def process_message(phone_number, message_text):
         # Get position for enhanced message
         position = session['data'].get('position', 'your selected position')
         
+        # Get progress info
+        current_q, total_q = get_progress_info(7)
+        progress_bar = get_progress_bar(current_q, total_q)
+        
         if lang == 'en':
             answers_tip = ""
             if is_demo_mode:
@@ -1798,36 +1874,44 @@ def process_message(phone_number, message_text):
             if not is_demo_mode:
                 # Enhanced message for Free Mode
                 response_text = (
+                    f"{progress_bar}\n\n"
                     "Perfect! 😊\n\n"
                     f"⚡ *Now come 3 technical questions about {position}.*\n\n"
-                    "💡 *What to expect:*\n"
-                    "• Each question evaluates your technical knowledge\n"
-                    "• There are no wrong answers — be honest about your experience\n"
-                    "• You can provide detailed answers (no length restrictions)\n"
-                    "• Your responses will be evaluated based on technical keywords and detail\n\n"
-                    "💡 *Tips for better scores:*\n"
-                    "• Be specific and detailed\n"
-                    "• Mention relevant technologies and concepts\n"
-                    "• Explain your thought process\n"
-                    "• Share real examples from your experience\n\n"
+                    "💡 *What I'm evaluating:*\n"
+                    "• Depth of technical knowledge\n"
+                    "• Real-world experience\n"
+                    "• Problem-solving approach\n"
+                    "• Communication clarity\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    "💻 *Technical Section* (3 questions)\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     "📊 *Progress: Question 1 of 3*\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     "📖 Or send HELP and I'll be here to assist you! 🌸\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     f"{tech_q1}"
                 )
             else:
-                # Original message for Demo Mode
+                # Enhanced message for Demo Mode
                 response_text = (
+                    f"{progress_bar}\n\n"
                     "Perfect! 😊\n\n"
                     "⚡ *Now come 3 technical questions.*\n\n"
+                    "💡 *What I'm evaluating:*\n"
+                    "• Depth of technical knowledge\n"
+                    "• Real-world experience\n"
+                    "• Problem-solving approach\n"
+                    "• Communication clarity\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n"
+                    "💻 *Technical Section* (3 questions)\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     "💡 *Tip:* Answer honestly based on your real experience.\n"
                     "There are no wrong answers — I just want to understand your current level. 🌸\n"
                     "*Be as detailed as possible - show me what you know!*\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     f"{answers_tip}"
                     "📖 Or send HELP and I'll be here to assist you! 🌸\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     f"{tech_q1}"
                 )
         else:
@@ -1851,9 +1935,9 @@ def process_message(phone_number, message_text):
                     "• Explica tu proceso de pensamiento\n"
                     "• Comparte ejemplos reales de tu experiencia\n\n"
                     "📊 *Progreso: Pregunta 1 de 3*\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     "📖 O envía AYUDA y estaré aquí para asistirte 🌸\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     f"{tech_q1}"
                 )
             else:
@@ -1864,10 +1948,10 @@ def process_message(phone_number, message_text):
                     "💡 *Tip:* Responde con honestidad basándote en tu experiencia real.\n"
                     "No hay respuestas incorrectas — solo quiero conocer tu nivel actual. 🌸\n"
                     "*¡Sé lo más detallado posible - demuéstranos lo que sabes!*\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     f"{answers_tip}"
                     "📖 O envía AYUDA y estaré aquí para asistirte 🌸\n\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    "━━━━━━━━━━━━━━━━━━\n\n"
                     f"{tech_q1}"
                 )
         session['data']['tech_questions'] = []
@@ -1961,7 +2045,7 @@ def process_message(phone_number, message_text):
         })
         session['scores']['technical'] += score
         
-        emotion = session['emotions'][-1]
+        emotion = session['emotions'][-1] if session['emotions'] else {'emotion': 'neutral', 'confidence': 0.5}
         lang = session.get('language', 'es')
         
         # Select question 2 based on position
@@ -2076,13 +2160,41 @@ def process_message(phone_number, message_text):
                     "¿Qué es Docker y para qué se usa?"
                 )
         
-        # Add progress indicator for Free Mode
+        # Add progress indicator and confirmation message
         is_demo_mode = session.get('demo_mode') == 'full_interview'
+        current_q, total_q = get_progress_info(8)
+        progress_bar = get_progress_bar(current_q, total_q)
+        
         if not is_demo_mode:
-            progress_text = "📊 *Progress: Question 2 of 3*\n\n" if lang == 'en' else "📊 *Progreso: Pregunta 2 de 3*\n\n"
-            response_text = f"Interesting answer 🎉\n\n{progress_text}{tech_q2}" if lang == 'en' else f"Interesante respuesta 🎉\n\n{progress_text}{tech_q2}"
+            if lang == 'en':
+                response_text = (
+                    "✅ Got it! Moving to the next question...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progress: Question 2 of 3*\n\n"
+                    f"{tech_q2}"
+                )
+            else:
+                response_text = (
+                    "✅ ¡Entendido! Pasando a la siguiente pregunta...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progreso: Pregunta 2 de 3*\n\n"
+                    f"{tech_q2}"
+                )
         else:
-            response_text = f"Interesting answer 🎉\n\n{tech_q2}" if lang == 'en' else f"Interesante respuesta 🎉\n\n{tech_q2}"
+            if lang == 'en':
+                response_text = (
+                    "✅ Got it! Moving to the next question...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progress: Question 2 of 3*\n\n"
+                    f"{tech_q2}"
+                )
+            else:
+                response_text = (
+                    "✅ ¡Entendido! Pasando a la siguiente pregunta...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progreso: Pregunta 2 de 3*\n\n"
+                    f"{tech_q2}"
+                )
         # Store the full question text for validation
         session['data']['current_tech_question'] = tech_q2
         session['stage'] = 8
@@ -2161,7 +2273,7 @@ def process_message(phone_number, message_text):
         })
         session['scores']['technical'] += score
         
-        emotion = session['emotions'][-1]
+        emotion = session['emotions'][-1] if session['emotions'] else {'emotion': 'neutral', 'confidence': 0.5}
         lang = session.get('language', 'es')
         
         # Select question 3 based on position
@@ -2274,13 +2386,41 @@ def process_message(phone_number, message_text):
                     "¿Qué es CI/CD? ¿Por qué es importante?"
                 )
         
-        # Add progress indicator for Free Mode
+        # Add progress indicator and confirmation message
         is_demo_mode = session.get('demo_mode') == 'full_interview'
+        current_q, total_q = get_progress_info(9)
+        progress_bar = get_progress_bar(current_q, total_q)
+        
         if not is_demo_mode:
-            progress_text = "📊 *Progress: Question 3 of 3*\n\n" if lang == 'en' else "📊 *Progreso: Pregunta 3 de 3*\n\n"
-            response_text = f"Good 🎉\n\n{progress_text}{tech_q3}" if lang == 'en' else f"Bien 🎉\n\n{progress_text}{tech_q3}"
+            if lang == 'en':
+                response_text = (
+                    "✅ Got it! Moving to the next question...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progress: Question 3 of 3*\n\n"
+                    f"{tech_q3}"
+                )
+            else:
+                response_text = (
+                    "✅ ¡Entendido! Pasando a la siguiente pregunta...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progreso: Pregunta 3 de 3*\n\n"
+                    f"{tech_q3}"
+                )
         else:
-            response_text = f"Good 🎉\n\n{tech_q3}" if lang == 'en' else f"Bien 🎉\n\n{tech_q3}"
+            if lang == 'en':
+                response_text = (
+                    "✅ Got it! Moving to the next question...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progress: Question 3 of 3*\n\n"
+                    f"{tech_q3}"
+                )
+            else:
+                response_text = (
+                    "✅ ¡Entendido! Pasando a la siguiente pregunta...\n\n"
+                    f"{progress_bar}\n\n"
+                    "📊 *Progreso: Pregunta 3 de 3*\n\n"
+                    f"{tech_q3}"
+                )
         # Store the full question text for validation
         session['data']['current_tech_question'] = tech_q3
         session['stage'] = 9
@@ -2379,20 +2519,44 @@ def process_message(phone_number, message_text):
         elif 'full stack' in position:
             tech_stack = "full stack development (frontend and backend technologies)"
         
+        # Get progress info
+        current_q, total_q = get_progress_info(10)
+        progress_bar = get_progress_bar(current_q, total_q)
+        
         if lang == 'en':
             response_text = (
-                f"✅ Technical questions completed!\n\n"
-                f"📊 Your technical score: *{avg_tech:.1f}/5.0*\n\n"
-                "🗣️ *Now let's evaluate your English.*\n\n"
+                "✅ Got it! Moving to the next section...\n\n"
+                f"{progress_bar}\n\n"
+                f"✅ Technical questions completed! 📊 Your technical score: {avg_tech:.1f}/5.0\n\n"
+                "🗣️ Now let's evaluate your English.\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "🇬🇧 *English Evaluation* (2 questions)\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "💡 *What I'm evaluating:*\n"
+                "• Grammar and vocabulary\n"
+                "• Fluency and naturalness\n"
+                "• Professional communication\n"
+                "• Clarity of expression\n\n"
+                "📊 *Progress: Question 1 of 2*\n\n"
                 "🇬🇧 *Question 1:*\n"
                 f"Describe your experience with {tech_stack}.\n"
                 "(Answer in English please)"
             )
         else:
             response_text = (
-                f"✅ Preguntas técnicas completadas!\n\n"
-                f"📊 Tu score técnico: *{avg_tech:.1f}/5.0*\n\n"
-                "🗣️ *Ahora evaluemos tu inglés.*\n\n"
+                "✅ ¡Entendido! Pasando a la siguiente sección...\n\n"
+                f"{progress_bar}\n\n"
+                f"✅ Preguntas técnicas completadas! 📊 Tu score técnico: {avg_tech:.1f}/5.0\n\n"
+                "🗣️ Ahora evaluemos tu inglés.\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "🇬🇧 *Evaluación de Inglés* (2 preguntas)\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "💡 *Qué estoy evaluando:*\n"
+                "• Gramática y vocabulario\n"
+                "• Fluidez y naturalidad\n"
+                "• Comunicación profesional\n"
+                "• Claridad de expresión\n\n"
+                "📊 *Progreso: Pregunta 1 de 2*\n\n"
                 "🇬🇧 *Question 1:*\n"
                 f"Describe your experience with {tech_stack}.\n"
                 "(Answer in English please)"
@@ -2659,17 +2823,43 @@ def process_message(phone_number, message_text):
         avg_english = session['scores']['english'] / 2
         lang = session.get('language', 'es')
         
+        # Get progress info for soft skills stage
+        current_q, total_q = get_progress_info(12)
+        progress_bar = get_progress_bar(current_q, total_q)
+        
         if lang == 'en':
             response_text = (
+                "✅ Great! Your English is being evaluated...\n\n"
+                f"{progress_bar}\n\n"
                 f"Excellent! ✅\n\n"
                 f"📊 English level: *{avg_english:.1f}/5.0*\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "💼 *Soft Skills Section* (1 question)\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "💡 *What I'm evaluating:*\n"
+                "• Teamwork and collaboration\n"
+                "• Problem-solving approach\n"
+                "• Communication skills\n"
+                "• Leadership potential\n\n"
+                "📊 *Progress: Question 12 of 13*\n\n"
                 "💼 *Last section: Soft Skills*\n\n"
                 "🤝 Tell me about a time you worked in a team to solve a difficult problem."
             )
         else:
             response_text = (
+                "✅ ¡Genial! Tu inglés está siendo evaluado...\n\n"
+                f"{progress_bar}\n\n"
                 f"Excellent! ✅\n\n"
                 f"📊 English level: *{avg_english:.1f}/5.0*\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "💼 *Sección Soft Skills* (1 pregunta)\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "💡 *Qué estoy evaluando:*\n"
+                "• Trabajo en equipo y colaboración\n"
+                "• Enfoque de resolución de problemas\n"
+                "• Habilidades de comunicación\n"
+                "• Potencial de liderazgo\n\n"
+                "📊 *Progreso: Pregunta 12 de 13*\n\n"
                 "💼 *Última sección: Soft Skills*\n\n"
                 "🤝 Cuéntame sobre una vez que trabajaste en equipo para resolver un problema difícil."
             )
@@ -2725,21 +2915,37 @@ def process_message(phone_number, message_text):
         session['data']['soft_skills_answer'] = message_text
         session['scores']['soft_skills'] = soft_score
         
-        emotion = session['emotions'][-1]
+        emotion = session['emotions'][-1] if session['emotions'] else {'emotion': 'neutral', 'confidence': 0.5}
         lang = session.get('language', 'es')
+        
+        # Get progress info for final question stage
+        current_q, total_q = get_progress_info(13)
+        progress_bar = get_progress_bar(current_q, total_q)
         
         if lang == 'en':
             response_text = (
-                "Very good! 😊\n\n"
+                "✅ Thank you! Processing your response...\n\n"
                 f"📊 Soft Skills score: *{soft_score:.1f}/5.0*\n\n"
+                f"{progress_bar}\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "📊 *Almost done!*\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "Very good! 😊\n\n"
+                "📊 *Progress: Question 13 of 13*\n\n"
                 "❓ *Last question:*\n"
                 "Why should we hire you and not another candidate?\n"
                 "(Be honest and specific)"
             )
         else:
             response_text = (
-                "Muy bien! 😊\n\n"
+                "✅ ¡Gracias! Procesando tu respuesta...\n\n"
                 f"📊 Soft Skills score: *{soft_score:.1f}/5.0*\n\n"
+                f"{progress_bar}\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "📊 *¡Casi terminamos!*\n"
+                "━━━━━━━━━━━━━━━━━━\n\n"
+                "¡Muy bien! 😊\n\n"
+                "📊 *Progreso: Pregunta 13 de 13*\n\n"
                 "❓ *Última pregunta:*\n"
                 "¿Por qué deberíamos contratarte a ti y no a otro candidato?\n"
                 "(Se honesto y específico)"
@@ -3250,6 +3456,16 @@ def process_message(phone_number, message_text):
                     f". Esta evaluación refleja tus respuestas en tiempo real y demuestra cómo SAORI AI se adapta a diferentes perfiles de candidatos.\n"
                 )
             
+            # Create visual bars for scores (Spanish)
+            tech_bar = "█" * int(tech_percentage / 5) + "░" * (20 - int(tech_percentage / 5))
+            english_bar = "█" * int((english_avg / 5.0 * 100) / 5) + "░" * (20 - int((english_avg / 5.0 * 100) / 5))
+            soft_bar = "█" * int((soft_skills / 5.0 * 100) / 5) + "░" * (20 - int((soft_skills / 5.0 * 100) / 5))
+            
+            # Stars for scores
+            tech_stars = "⭐" * min(5, int(tech_avg))
+            english_stars = "⭐" * min(5, int(english_avg))
+            soft_stars = "⭐" * min(5, int(soft_skills))
+            
             response_text = (
                 f"{emoji} *¡ENTREVISTA COMPLETADA!*\n\n"
                 f"━━━━━━━━━━━━━━━━━━\n"
@@ -3258,11 +3474,18 @@ def process_message(phone_number, message_text):
                 f"👤 *Candidato:* {session['data']['name']}\n"
                 f"💼 *Posición:* {session['data']['position']}\n"
                 f"📊 *Nivel inferido:* {inferred_level}\n\n"
-                f"*SCORES:*\n"
-                f"🔧 Técnico: {tech_avg:.1f}/5.0 ({tech_percentage:.0f}%)\n"
-                f"🗣️ Inglés: {english_avg:.1f}/5.0\n"
-                f"💼 Soft Skills: {soft_skills:.1f}/5.0\n\n"
-                f"🎯 *SCORE FINAL: {final_score:.2f}/5.0*\n\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"*SCORES*\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
+                f"💻 Habilidades Técnicas: {tech_avg:.1f}/5.0 {tech_stars}\n"
+                f"   {tech_bar} {tech_percentage:.0f}%\n\n"
+                f"🗣️ Nivel de Inglés: {english_avg:.1f}/5.0 {english_stars}\n"
+                f"   {english_bar} {int(english_avg / 5.0 * 100):.0f}%\n\n"
+                f"💼 Soft Skills: {soft_skills:.1f}/5.0 {soft_stars}\n"
+                f"   {soft_bar} {int(soft_skills / 5.0 * 100):.0f}%\n\n"
+                f"━━━━━━━━━━━━━━━━━━\n"
+                f"🎯 *SCORE FINAL: {final_score:.2f}/5.0*\n"
+                f"━━━━━━━━━━━━━━━━━━\n\n"
                 f"*ANÁLISIS EMOCIONAL (AI):*\n"
                 f"😊 Emoción dominante: {dominant_emotion} {EMOTION_EMOJIS.get(dominant_emotion, '😐')}\n"
                 f"📈 Confianza promedio: {avg_confidence:.0%}\n"
@@ -3663,73 +3886,147 @@ def show_help_message(session):
             if lang == 'en':
                 if profile_name == 'Ana García':
                     help_text = (
-                        "📖 *HELP - ANA GARCÍA PROFILE*\n\n"
+                        "📖 *HELP - ANA GARCÍA PROFILE* 🌸\n\n"
                         "You're testing Ana García (Senior Data Engineer).\n\n"
+                        "📊 *Expected scores:*\n"
+                        "• Final score: 4.87/5.0\n"
+                        "• Trust Score: 100/100\n"
+                        "• Inferred level: Senior\n\n"
                         "💡 *Useful commands:*\n"
-                        "• *ANSWERS* → See suggested answers\n"
+                        "• *ANSWERS* → See suggested answers (send at any time)\n"
                         "• *RESET* → Restart from beginning\n"
                         "• *HELP* → Show this help\n\n"
-                        "⏱️ *Expected time:* 5-7 minutes"
+                        "💡 *How to use ANSWERS:*\n"
+                        "1. During the interview, send *ANSWERS*\n"
+                        "2. You'll see the suggested answer for the current question\n"
+                        "3. You can copy and paste the answer or write your own\n\n"
+                        "⏱️ *Estimated time:* 5-7 minutes\n\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        "💡 *Tip:* Use *ANSWERS* to move quickly and see all system capabilities\n"
+                        "━━━━━━━━━━━━━━━━━━"
                     )
                 else:
                     help_text = (
-                        "📖 *HELP - LUIS MARTÍNEZ PROFILE*\n\n"
+                        "📖 *HELP - LUIS MARTÍNEZ PROFILE* 🌸\n\n"
                         "You're testing Luis Martínez (Junior Backend Developer).\n\n"
+                        "📊 *Expected scores:*\n"
+                        "• Final score: 2.9/5.0\n"
+                        "• Trust Score: 80/100\n"
+                        "• Inferred level: Junior\n\n"
                         "💡 *Useful commands:*\n"
-                        "• *ANSWERS* → See suggested answers\n"
+                        "• *ANSWERS* → See suggested answers (send at any time)\n"
                         "• *RESET* → Restart from beginning\n"
                         "• *HELP* → Show this help\n\n"
-                        "⏱️ *Expected time:* 5-7 minutes"
+                        "💡 *How to use ANSWERS:*\n"
+                        "1. During the interview, send *ANSWERS*\n"
+                        "2. You'll see the suggested answer for the current question\n"
+                        "3. You can copy and paste the answer or write your own\n\n"
+                        "⏱️ *Estimated time:* 5-7 minutes\n\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        "💡 *Tip:* Use *ANSWERS* to move quickly and see all system capabilities\n"
+                        "━━━━━━━━━━━━━━━━━━"
                     )
             else:
                 if profile_name == 'Ana García':
                     help_text = (
-                        "📖 *AYUDA - PERFIL ANA GARCÍA*\n\n"
+                        "📖 *AYUDA - PERFIL ANA GARCÍA* 🌸\n\n"
                         "Estás probando Ana García (Data Engineer Senior).\n\n"
+                        "📊 *Scores esperados:*\n"
+                        "• Score final: 4.87/5.0\n"
+                        "• Trust Score: 100/100\n"
+                        "• Nivel inferido: Senior\n\n"
                         "💡 *Comandos útiles:*\n"
-                        "• *RESPUESTAS* → Ver respuestas sugeridas\n"
+                        "• *RESPUESTAS* → Ver respuestas sugeridas (envía en cualquier momento)\n"
                         "• *RESET* → Reiniciar desde el inicio\n"
-                        "• *AYUDA* → Ver esta ayuda"
+                        "• *AYUDA* → Ver esta ayuda\n\n"
+                        "💡 *Cómo usar RESPUESTAS:*\n"
+                        "1. Durante la entrevista, envía *RESPUESTAS*\n"
+                        "2. Verás la respuesta sugerida para la pregunta actual\n"
+                        "3. Puedes copiar y pegar la respuesta o escribir la tuya\n\n"
+                        "⏱️ *Tiempo estimado:* 5-7 minutos\n\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        "💡 *Tip:* Usa *RESPUESTAS* para avanzar rápidamente y ver todas las capacidades del sistema\n"
+                        "━━━━━━━━━━━━━━━━━━"
                     )
                 else:
                     help_text = (
-                        "📖 *AYUDA - PERFIL LUIS MARTÍNEZ*\n\n"
+                        "📖 *AYUDA - PERFIL LUIS MARTÍNEZ* 🌸\n\n"
                         "Estás probando Luis Martínez (Backend Developer Junior).\n\n"
+                        "📊 *Scores esperados:*\n"
+                        "• Score final: 2.9/5.0\n"
+                        "• Trust Score: 80/100\n"
+                        "• Nivel inferido: Junior\n\n"
                         "💡 *Comandos útiles:*\n"
-                        "• *RESPUESTAS* → Ver respuestas sugeridas\n"
+                        "• *RESPUESTAS* → Ver respuestas sugeridas (envía en cualquier momento)\n"
                         "• *RESET* → Reiniciar desde el inicio\n"
-                        "• *AYUDA* → Ver esta ayuda"
+                        "• *AYUDA* → Ver esta ayuda\n\n"
+                        "💡 *Cómo usar RESPUESTAS:*\n"
+                        "1. Durante la entrevista, envía *RESPUESTAS*\n"
+                        "2. Verás la respuesta sugerida para la pregunta actual\n"
+                        "3. Puedes copiar y pegar la respuesta o escribir la tuya\n\n"
+                        "⏱️ *Tiempo estimado:* 5-7 minutos\n\n"
+                        "━━━━━━━━━━━━━━━━━━\n"
+                        "💡 *Tip:* Usa *RESPUESTAS* para avanzar rápidamente y ver todas las capacidades del sistema\n"
+                        "━━━━━━━━━━━━━━━━━━"
                     )
     
     # General help (if no specific help was set)
     if not help_text:
         if lang == 'en':
             help_text = (
-                "📖 *GENERAL HELP*\n\n"
-                "Available commands:\n"
-                "• *DEMO* → Start demo mode\n"
-                "• *RESTART* / *RESET* → Clear session\n"
-                "• *AYUDA* / *HELP* → Show this help\n"
-                "• *RESPUESTAS* / *ANSWERS* → Show suggested answers (in demo mode)\n\n"
-                "💡 *Tip:* Start with *DEMO* to test the system"
+                "📖 *HELP - SAORI AI Core* 🌸\n\n"
+                "🎯 *What is SAORI?*\n"
+                "AI assistant for real-time candidate evaluation.\n\n"
+                "🚀 *To start quickly:*\n"
+                "• Send *DEMO* → Test with sample profiles (Ana/Luis)\n"
+                "• Send *1* or *2* → Choose language and mode\n\n"
+                "📋 *Available commands:*\n"
+                "• *DEMO* - Demo mode (recommended for judges)\n"
+                "• *HELP* - Show this help\n"
+                "• *RESTART* - Restart from the beginning\n"
+                "• *ANSWERS* - Show suggested answers (only in DEMO mode)\n\n"
+                "💡 *Recommended flow for judges:*\n"
+                "1. Send *DEMO*\n"
+                "2. Select language (*1* = English, *2* = Español)\n"
+                "3. Select profile (*1* = Ana García, *2* = Luis Martínez)\n"
+                "4. Reply *YES* to accept privacy\n"
+                "5. Send *ANSWERS* at any time to see suggested answers\n"
+                "6. Complete the interview and see the results\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "⏱️ *Estimated time:* 5-7 minutes per profile\n"
+                "━━━━━━━━━━━━━━━━━━"
             )
         else:
             help_text = (
-                "📖 *AYUDA GENERAL*\n\n"
-                "Comandos disponibles:\n"
-                "• *DEMO* → Iniciar modo demo\n"
-                "• *REINICIAR* → Limpiar sesión\n"
-                "• *AYUDA* → Ver esta ayuda\n"
-                "• *RESPUESTAS* → Ver respuestas sugeridas (en modo demo)\n\n"
-                "💡 *Tip:* Empieza con *DEMO* para probar el sistema"
+                "📖 *AYUDA - SAORI AI Core* 🌸\n\n"
+                "🎯 *¿Qué es SAORI?*\n"
+                "Asistente de IA para evaluación de candidatos en tiempo real.\n\n"
+                "🚀 *Para empezar rápido:*\n"
+                "• Envía *DEMO* → Prueba con perfiles de ejemplo (Ana/Luis)\n"
+                "• Envía *1* o *2* → Elige idioma y modo\n\n"
+                "📋 *Comandos disponibles:*\n"
+                "• *DEMO* - Modo demostración (recomendado para jueces)\n"
+                "• *AYUDA* - Ver esta ayuda\n"
+                "• *REINICIAR* - Reiniciar desde el inicio\n"
+                "• *RESPUESTAS* - Ver respuestas sugeridas (solo en modo DEMO)\n\n"
+                "💡 *Flujo recomendado para jueces:*\n"
+                "1. Envía *DEMO*\n"
+                "2. Selecciona idioma (*1* = English, *2* = Español)\n"
+                "3. Selecciona perfil (*1* = Ana García, *2* = Luis Martínez)\n"
+                "4. Responde *YES* para aceptar privacidad\n"
+                "5. Envía *RESPUESTAS* en cualquier momento para ver respuestas sugeridas\n"
+                "6. Completa la entrevista y ve los resultados\n\n"
+                "━━━━━━━━━━━━━━━━━━\n"
+                "⏱️ *Tiempo estimado:* 5-7 minutos por perfil\n"
+                "━━━━━━━━━━━━━━━━━━"
             )
     
     # Append last bot message if available and we're in an active interview
     if last_bot_message and stage > 0:
         if lang == 'en':
-            return f"{help_text}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n{last_bot_message}"
+            return f"{help_text}\n\n━━━━━━━━━━━━━━━━━━\n\n{last_bot_message}"
         else:
-            return f"{help_text}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n{last_bot_message}"
+            return f"{help_text}\n\n━━━━━━━━━━━━━━━━━━\n\n{last_bot_message}"
     
     return help_text
 
@@ -3799,38 +4096,38 @@ def show_answers_for_profile(session, stage=None):
             if lang == 'en':
                 return (
                     f"💡 *Tip:* Copy and paste this answer, or modify it as needed\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"━━━━━━━━━━━━━━━━━━\n\n"
                     f"{answer_text}"
                 )
             else:
                 return (
                     f"💡 *Tip:* Copia y pega esta respuesta, o modifícala según necesites\n\n"
-                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"━━━━━━━━━━━━━━━━━━\n\n"
                     f"{answer_text}"
                 )
     
     # Show all answers
     if lang == 'en':
         response = f"📋 *SUGGESTED ANSWERS FOR {profile_name}*\n\n"
-        response += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        response += "━━━━━━━━━━━━━━━━━━\n\n"
         response += f"1. Privacy: {answers.get('privacy', 'N/A')}\n"
         response += f"2. Position: {answers.get('position', 'N/A')}\n"
         response += f"3. Availability: {answers.get('availability', 'N/A')}\n"
         response += f"4. Salary: {answers.get('salary', 'N/A')}\n"
         response += f"5. Modality: {answers.get('modality', 'N/A')}\n"
         response += f"6. Zone: {answers.get('zone', 'N/A')}\n\n"
-        response += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        response += "━━━━━━━━━━━━━━━━━━\n\n"
         response += "💡 *Tip:* Send *ANSWERS* during any question to see the answer for that specific stage"
     else:
         response = f"📋 *RESPUESTAS SUGERIDAS PARA {profile_name}*\n\n"
-        response += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        response += "━━━━━━━━━━━━━━━━━━\n\n"
         response += f"1. Privacidad: {answers.get('privacy', 'N/A')}\n"
         response += f"2. Posición: {answers.get('position', 'N/A')}\n"
         response += f"3. Disponibilidad: {answers.get('availability', 'N/A')}\n"
         response += f"4. Salario: {answers.get('salary', 'N/A')}\n"
         response += f"5. Modalidad: {answers.get('modality', 'N/A')}\n"
         response += f"6. Zona: {answers.get('zone', 'N/A')}\n\n"
-        response += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        response += "━━━━━━━━━━━━━━━━━━\n\n"
         response += "💡 *Tip:* Envía *RESPUESTAS* durante cualquier pregunta para ver la respuesta de esa etapa"
     
     return response
@@ -3851,7 +4148,7 @@ def process_demo_mode(phone_number, message_text):
             "1️⃣ *English* 🇬🇧\n"
             "2️⃣ *Español* 🇪🇸\n\n"
             "Which language? Just reply: *1* or *2* 😊\n\n"
-            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+            "━━━━━━━━━━━━━━━━━━\n"
             "📖 Or send *HELP* or *AYUDA* anytime for help"
         )
     
@@ -3876,7 +4173,7 @@ def process_demo_mode(phone_number, message_text):
                 "   💻 Python/Django, REST APIs\n"
                 "   📊 Expected: 2.9/5.0, Trust 80\n\n"
                 "Which one should I interview? Just reply: *1* or *2* 😊\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "━━━━━━━━━━━━━━━━━━\n"
                 "💡 *Tip:* After selecting, send *ANSWERS* to see suggested answers"
             )
         elif language_choice == '2':
@@ -3896,7 +4193,7 @@ def process_demo_mode(phone_number, message_text):
                 "   💻 Python/Django, APIs REST\n"
                 "   📊 Esperado: 2.9/5.0, Confianza 80\n\n"
                 "¿Cuál quieres que entreviste? Solo responde: *1* o *2* 😊\n\n"
-                "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "━━━━━━━━━━━━━━━━━━\n"
                 "💡 *Tip:* Después de seleccionar, envía *RESPUESTAS* para ver respuestas sugeridas"
             )
         else:
@@ -4066,10 +4363,23 @@ def webhook():
             # Send welcome message automatically
             response_text = (
                 "🌸 *¡Bienvenido a SAORI AI Core!* / *Welcome to SAORI AI Core!* 🌸\n\n"
-                "Primero, elige tu idioma / First, choose your language:\n\n"
+                "Soy *Saori* — un asistente de IA para evaluación de candidatos en tiempo real.\n\n"
+                "📋 *¿Qué puedo hacer?* / *What can I do?*\n"
+                "• Evaluar candidatos en tiempo real\n"
+                "• Analizar habilidades técnicas, inglés y soft skills\n"
+                "• Generar reportes completos con Trust Score\n\n"
+                "🚀 *Para empezar rápido:* / *To start quickly:*\n"
+                "Envía *DEMO* para probar con perfiles de ejemplo (recomendado para jueces)\n"
+                "Send *DEMO* to test with sample profiles (recommended for judges)\n\n"
+                "O elige tu idioma para comenzar / Or choose your language to start:\n"
                 "1️⃣ *English* 🇬🇧\n"
                 "2️⃣ *Español* 🇪🇸\n\n"
-                "¿Qué idioma? / Which language? Just reply: *1* or *2* 😊"
+                "💡 *Comandos disponibles:* / *Available commands:*\n"
+                "• *DEMO* - Modo demostración / Demo mode\n"
+                "• *HELP* - Ayuda en cualquier momento / Help anytime\n"
+                "• *RESTART* - Reiniciar / Restart\n\n"
+                "¿Qué prefieres? Responde *DEMO* o elige *1* o *2* 😊\n"
+                "What do you prefer? Reply *DEMO* or choose *1* or *2* 😊"
             )
             
             # Create Twilio response
@@ -4238,9 +4548,9 @@ def webhook():
                     # If in demo mode and showing a specific answer (not all answers), send in two messages
                     if demo_mode == 'full_interview' and current_stage in [0.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]:
                         # Check if response contains tip separator (indicates two-part message)
-                        if "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" in response_text:
+                        if "━━━━━━━━━━━━━━━━━━" in response_text:
                             # Split response into tip and answer
-                            parts = response_text.split("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                            parts = response_text.split("━━━━━━━━━━━━━━━━━━")
                             if len(parts) == 2:
                                 tip_part = parts[0].strip()
                                 answer_part = parts[1].strip()
@@ -4354,13 +4664,13 @@ def webhook():
                             if lang == 'en':
                                 response_text = (
                                     f"🤔 *I didn't understand that command.*\n\n"
-                                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                                    f"━━━━━━━━━━━━━━━━━━\n\n"
                                     f"{last_message}"
                                 )
                             else:
                                 response_text = (
                                     f"🤔 *No entendí ese comando.*\n\n"
-                                    f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+                                    f"━━━━━━━━━━━━━━━━━━\n\n"
                                     f"{last_message}"
                                 )
                         else:
