@@ -17,7 +17,7 @@
 
    # BERT Emotional Analysis
    transformers==4.35.0
-   torch==2.1.0
+   torch>=2.5.0
    sentencepiece==0.1.99
    sentence-transformers>=2.2.0
 
@@ -34,3 +34,4 @@
    # Utilities
    requests==2.31.0
    python-dateutil==2.8.2
+
