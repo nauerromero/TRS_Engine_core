@@ -1,38 +1,36 @@
-   # SAORI AI Core - Requirements
-   # Core dependencies for WhatsApp Bot
+# SAORI AI Core - Requirements
+# Core dependencies for WhatsApp Bot
 
-   # Flask and web framework
-   Flask==3.0.0
-   gunicorn==21.2.0
+# Flask and web framework
+Flask==3.0.0
+gunicorn==21.2.0
 
-   # Twilio WhatsApp integration
-   twilio==8.10.0
+# Twilio WhatsApp integration
+twilio==8.10.0
 
-   # Environment variables
-   python-dotenv==1.0.0
+# Environment variables
+python-dotenv==1.0.0
 
-   # Natural Language Processing
-   langdetect==1.0.9
-   language-tool-python==2.7.1
+# Natural Language Processing
+langdetect==1.0.9
+language-tool-python==2.7.1
 
-   # BERT Emotional Analysis
-   transformers==4.35.0
-   torch>=2.5.0
-   sentencepiece==0.1.99
-   sentence-transformers>=2.2.0
+# BERT Emotional Analysis
+transformers==4.35.0
+# torch installed via setup.sh (CPU-only version, smaller size ~200MB vs ~1.5GB)
+sentencepiece==0.1.99
+sentence-transformers>=2.2.0
 
-   # Data processing
-   pandas>=2.2.0
-   numpy>=1.26.0
+# Data processing
+pandas>=2.2.0
+numpy>=1.26.0
 
-   # CV Parsing
-   PyPDF2>=3.0.0
+# CV Parsing
+PyPDF2>=3.0.0
 
-   # Fuzzy matching
-   rapidfuzz>=3.0.0
+# Fuzzy matching
+rapidfuzz>=3.0.0
 
-   # Utilities
-   requests==2.31.0
-   python-dateutil==2.8.2
-
-
+# Utilities
+requests==2.31.0
+python-dateutil==2.8.2
